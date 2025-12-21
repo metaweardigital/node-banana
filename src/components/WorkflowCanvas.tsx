@@ -101,10 +101,25 @@ interface ConnectionDropState {
   sourceHandleId: string | null;
 }
 
+// Detect if running on macOS for platform-specific trackpad behavior
+const isMacOS = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+
+// Detect if a wheel event is from a mouse (vs trackpad)
+const isMouseWheel = (event: WheelEvent): boolean => {
+  // Mouse scroll wheel typically uses deltaMode 1 (lines) or has large discrete deltas
+  // Trackpad uses deltaMode 0 (pixels) with smaller, smoother deltas
+  if (event.deltaMode === 1) return true; // DOM_DELTA_LINE = mouse
+
+  // Fallback: large delta values suggest mouse wheel
+  const threshold = 50;
+  return Math.abs(event.deltaY) >= threshold &&
+         Math.abs(event.deltaY) % 40 === 0; // Mouse deltas often in multiples
+};
+
 export function WorkflowCanvas() {
   const { nodes, edges, groups, onNodesChange, onEdgesChange, onConnect, addNode, updateNodeData, loadWorkflow, getNodeById, addToGlobalHistory, setNodeGroupId } =
     useWorkflowStore();
-  const { screenToFlowPosition, getViewport } = useReactFlow();
+  const { screenToFlowPosition, getViewport, zoomIn, zoomOut, setViewport } = useReactFlow();
   const [isDragOver, setIsDragOver] = useState(false);
   const [dropType, setDropType] = useState<"image" | "workflow" | "node" | null>(null);
   const [connectionDrop, setConnectionDrop] = useState<ConnectionDropState | null>(null);
@@ -502,6 +517,43 @@ export function WorkflowCanvas() {
   const handleCloseDropMenu = useCallback(() => {
     setConnectionDrop(null);
   }, []);
+
+  // Custom wheel handler for macOS trackpad support
+  const handleWheel = useCallback((event: React.WheelEvent) => {
+    // Pinch gesture (ctrlKey) always zooms
+    if (event.ctrlKey) {
+      event.preventDefault();
+      if (event.deltaY < 0) zoomIn();
+      else zoomOut();
+      return;
+    }
+
+    // On macOS, differentiate trackpad from mouse
+    if (isMacOS) {
+      const nativeEvent = event.nativeEvent;
+      if (isMouseWheel(nativeEvent)) {
+        // Mouse wheel → zoom
+        event.preventDefault();
+        if (event.deltaY < 0) zoomIn();
+        else zoomOut();
+      } else {
+        // Trackpad scroll → pan
+        event.preventDefault();
+        const viewport = getViewport();
+        setViewport({
+          x: viewport.x - event.deltaX,
+          y: viewport.y - event.deltaY,
+          zoom: viewport.zoom,
+        });
+      }
+      return;
+    }
+
+    // Non-macOS: default zoom behavior
+    event.preventDefault();
+    if (event.deltaY < 0) zoomIn();
+    else zoomOut();
+  }, [zoomIn, zoomOut, getViewport, setViewport]);
 
   // Get copy/paste functions and clipboard from store
   const { copySelectedNodes, pasteNodes, clearClipboard, clipboard } = useWorkflowStore();
@@ -933,10 +985,14 @@ export function WorkflowCanvas() {
         fitView
         deleteKeyCode={["Backspace", "Delete"]}
         multiSelectionKeyCode="Shift"
-        selectionOnDrag={false}
-        panOnDrag
+        selectionOnDrag={isMacOS}
+        panOnDrag={!isMacOS}
         selectNodesOnDrag={false}
         nodeDragThreshold={5}
+        zoomOnScroll={false}
+        zoomOnPinch={true}
+        panActivationKeyCode="Space"
+        onWheel={handleWheel}
         className="bg-neutral-900"
         defaultEdgeOptions={{
           type: "editable",

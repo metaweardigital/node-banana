@@ -12,7 +12,8 @@
       "Bash(find:*)",
       "Bash(xargs cat:*)",
       "WebSearch",
-      "WebFetch(domain:ai.google.dev)"
+      "WebFetch(domain:ai.google.dev)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
