@@ -80,13 +80,6 @@ function mapToProviderModel(model: FalModel): ProviderModel {
   };
 }
 
-/**
- * Build category filter query string for relevant categories
- */
-function buildCategoryFilter(): string {
-  return RELEVANT_CATEGORIES.map((cat) => `category=${encodeURIComponent(cat)}`).join("&");
-}
-
 interface ModelsSuccessResponse {
   success: true;
   models: ProviderModel[];
@@ -126,8 +119,9 @@ export async function GET(
   );
 
   try {
-    // Build URL with category filter and optional search
-    let url = `${FAL_API_BASE}/models?${buildCategoryFilter()}&status=active`;
+    // Build URL - fetch all active models, filter client-side
+    // Note: fal.ai API only accepts single category param, so we fetch all and filter
+    let url = `${FAL_API_BASE}/models?status=active`;
 
     if (searchQuery) {
       url += `&q=${encodeURIComponent(searchQuery)}`;

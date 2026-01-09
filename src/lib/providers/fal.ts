@@ -138,13 +138,6 @@ function buildHeaders(apiKey: string | null): HeadersInit {
 }
 
 /**
- * Build category filter query string for relevant categories
- */
-function buildCategoryFilter(): string {
-  return RELEVANT_CATEGORIES.map((cat) => `category=${encodeURIComponent(cat)}`).join("&");
-}
-
-/**
  * fal.ai provider implementation
  */
 const falProvider: ProviderInterface = {
@@ -155,8 +148,9 @@ const falProvider: ProviderInterface = {
     const apiKey = getApiKeyFromStorage();
 
     try {
-      // Fetch models with category filter for relevant types
-      const url = `${FAL_API_BASE}/models?${buildCategoryFilter()}&status=active`;
+      // Fetch all active models, filter client-side
+      // Note: fal.ai API only accepts single category param, so we fetch all and filter
+      const url = `${FAL_API_BASE}/models?status=active`;
       const response = await fetch(url, {
         headers: buildHeaders(apiKey),
       });
@@ -179,8 +173,9 @@ const falProvider: ProviderInterface = {
     const apiKey = getApiKeyFromStorage();
 
     try {
-      // Search with query and category filter
-      const url = `${FAL_API_BASE}/models?q=${encodeURIComponent(query)}&${buildCategoryFilter()}&status=active`;
+      // Search with query, filter client-side
+      // Note: fal.ai API only accepts single category param, so we fetch all and filter
+      const url = `${FAL_API_BASE}/models?q=${encodeURIComponent(query)}&status=active`;
       const response = await fetch(url, {
         headers: buildHeaders(apiKey),
       });
