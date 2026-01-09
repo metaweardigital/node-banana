@@ -42,7 +42,7 @@ Plans:
 
 Plans:
 - [x] 02-01: Replicate model fetching API route
-- [ ] 02-02: fal.ai model fetching API route
+- [x] 02-02: fal.ai model fetching API route
 - [ ] 02-03: Model caching and unified model interface
 
 ### Phase 3: Generate Node Refactor
@@ -96,7 +96,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Provider Infrastructure | 2/2 | Complete | 2026-01-09 |
-| 2. Model Discovery | 1/3 | In progress | - |
+| 2. Model Discovery | 2/3 | In progress | - |
 | 3. Generate Node Refactor | 0/3 | Not started | - |
 | 4. Model Search Dialog | 0/2 | Not started | - |
 | 5. Image URL Server | 0/2 | Not started | - |
