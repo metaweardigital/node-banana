@@ -1,15 +1,8 @@
-import { Node, Edge } from "@xyflow/react";
+import { Edge } from "@xyflow/react";
 
-// Node Types
-export type NodeType =
-  | "imageInput"
-  | "annotation"
-  | "prompt"
-  | "nanoBanana"
-  | "generateVideo"
-  | "llmGenerate"
-  | "splitGrid"
-  | "output";
+// Re-export all node and annotation types from domain files
+export * from "./annotation";
+export * from "./nodes";
 
 // Aspect Ratios (supported by both Nano Banana and Nano Banana Pro)
 export type AspectRatio = "1:1" | "2:3" | "3:2" | "3:4" | "4:3" | "4:5" | "5:4" | "9:16" | "16:9" | "21:9";
@@ -31,223 +24,6 @@ export type LLMModelType =
   | "gpt-4.1-mini"
   | "gpt-4.1-nano";
 
-// Node Status
-export type NodeStatus = "idle" | "loading" | "complete" | "error";
-
-// Base node data - using Record to satisfy React Flow's type constraints
-export interface BaseNodeData extends Record<string, unknown> {
-  label?: string;
-  customTitle?: string;
-  comment?: string;
-}
-
-// Image Input Node Data
-export interface ImageInputNodeData extends BaseNodeData {
-  image: string | null;
-  imageRef?: string;  // External image reference for storage optimization
-  filename: string | null;
-  dimensions: { width: number; height: number } | null;
-}
-
-// Annotation Shape Types
-export type ShapeType = "rectangle" | "circle" | "arrow" | "freehand" | "text";
-
-export interface BaseShape {
-  id: string;
-  type: ShapeType;
-  x: number;
-  y: number;
-  stroke: string;
-  strokeWidth: number;
-  opacity: number;
-}
-
-export interface RectangleShape extends BaseShape {
-  type: "rectangle";
-  width: number;
-  height: number;
-  fill: string | null;
-}
-
-export interface CircleShape extends BaseShape {
-  type: "circle";
-  radiusX: number;
-  radiusY: number;
-  fill: string | null;
-}
-
-export interface ArrowShape extends BaseShape {
-  type: "arrow";
-  points: number[];
-}
-
-export interface FreehandShape extends BaseShape {
-  type: "freehand";
-  points: number[];
-}
-
-export interface TextShape extends BaseShape {
-  type: "text";
-  text: string;
-  fontSize: number;
-  fill: string;
-}
-
-export type AnnotationShape =
-  | RectangleShape
-  | CircleShape
-  | ArrowShape
-  | FreehandShape
-  | TextShape;
-
-// Annotation Node Data
-export interface AnnotationNodeData extends BaseNodeData {
-  sourceImage: string | null;
-  sourceImageRef?: string;  // External image reference for storage optimization
-  annotations: AnnotationShape[];
-  outputImage: string | null;
-  outputImageRef?: string;  // External image reference for storage optimization
-}
-
-// Prompt Node Data
-export interface PromptNodeData extends BaseNodeData {
-  prompt: string;
-}
-
-// Image History Item (for tracking generated images)
-export interface ImageHistoryItem {
-  id: string;
-  image: string;          // Base64 data URL
-  timestamp: number;      // For display & sorting
-  prompt: string;         // The prompt used
-  aspectRatio: AspectRatio;
-  model: ModelType;
-}
-
-// Carousel Image Item (for per-node history)
-export interface CarouselImageItem {
-  id: string;
-  timestamp: number;
-  prompt: string;
-  aspectRatio: AspectRatio;
-  model: ModelType;
-}
-
-// Carousel Video Item (for per-node video history)
-export interface CarouselVideoItem {
-  id: string;
-  timestamp: number;
-  prompt: string;
-  model: string;  // Model ID for video (not ModelType since external providers)
-}
-
-// Model input definition for dynamic handles
-export interface ModelInputDef {
-  name: string;
-  type: "image" | "text";
-  required: boolean;
-  label: string;
-  description?: string;
-}
-
-// Nano Banana Node Data (Image Generation)
-export interface NanoBananaNodeData extends BaseNodeData {
-  inputImages: string[]; // Now supports multiple images
-  inputImageRefs?: string[];  // External image references for storage optimization
-  inputPrompt: string | null;
-  outputImage: string | null;
-  outputImageRef?: string;  // External image reference for storage optimization
-  aspectRatio: AspectRatio;
-  resolution: Resolution; // Only used by Nano Banana Pro
-  model: ModelType;
-  selectedModel?: SelectedModel;  // Multi-provider model selection (optional for backward compat)
-  useGoogleSearch: boolean; // Only available for Nano Banana Pro
-  parameters?: Record<string, unknown>;  // Model-specific parameters for external providers
-  inputSchema?: ModelInputDef[];  // Model's input schema for dynamic handles
-  status: NodeStatus;
-  error: string | null;
-  imageHistory: CarouselImageItem[]; // Carousel history (IDs only)
-  selectedHistoryIndex: number; // Currently selected image in carousel
-}
-
-// Generate Video Node Data (Video Generation)
-export interface GenerateVideoNodeData extends BaseNodeData {
-  inputImages: string[];
-  inputImageRefs?: string[];  // External image references for storage optimization
-  inputPrompt: string | null;
-  outputVideo: string | null;  // Video data URL or URL
-  outputVideoRef?: string;  // External video reference for storage optimization
-  selectedModel?: SelectedModel;  // Required for video generation (no legacy fallback)
-  parameters?: Record<string, unknown>;  // Model-specific parameters
-  inputSchema?: ModelInputDef[];  // Model's input schema for dynamic handles
-  status: NodeStatus;
-  error: string | null;
-  videoHistory: CarouselVideoItem[];  // Carousel history (IDs only)
-  selectedVideoHistoryIndex: number;  // Currently selected video in carousel
-}
-
-// LLM Generate Node Data (Text Generation)
-export interface LLMGenerateNodeData extends BaseNodeData {
-  inputPrompt: string | null;
-  inputImages: string[];
-  inputImageRefs?: string[];  // External image references for storage optimization
-  outputText: string | null;
-  provider: LLMProvider;
-  model: LLMModelType;
-  temperature: number;
-  maxTokens: number;
-  status: NodeStatus;
-  error: string | null;
-}
-
-// Output Node Data
-export interface OutputNodeData extends BaseNodeData {
-  image: string | null;
-  imageRef?: string;  // External image reference for storage optimization
-  video?: string | null;  // Video data URL or HTTP URL
-  contentType?: "image" | "video";  // Explicit content type hint
-}
-
-// Split Grid Node Data (Utility Node)
-export interface SplitGridNodeData extends BaseNodeData {
-  sourceImage: string | null;
-  sourceImageRef?: string;  // External image reference for storage optimization
-  targetCount: number;  // 4, 6, 8, 9, or 10
-  defaultPrompt: string;
-  generateSettings: {
-    aspectRatio: AspectRatio;
-    resolution: Resolution;
-    model: ModelType;
-    useGoogleSearch: boolean;
-  };
-  childNodeIds: Array<{
-    imageInput: string;
-    prompt: string;
-    nanoBanana: string;
-  }>;
-  gridRows: number;
-  gridCols: number;
-  isConfigured: boolean;
-  status: NodeStatus;
-  error: string | null;
-}
-
-// Union of all node data types
-export type WorkflowNodeData =
-  | ImageInputNodeData
-  | AnnotationNodeData
-  | PromptNodeData
-  | NanoBananaNodeData
-  | GenerateVideoNodeData
-  | LLMGenerateNodeData
-  | SplitGridNodeData
-  | OutputNodeData;
-
-// Workflow Node with typed data (extended with optional groupId)
-export type WorkflowNode = Node<WorkflowNodeData, NodeType> & {
-  groupId?: string;
-};
-
 // Workflow Edge Data
 export interface WorkflowEdgeData extends Record<string, unknown> {
   hasPause?: boolean;
@@ -255,9 +31,6 @@ export interface WorkflowEdgeData extends Record<string, unknown> {
 
 // Workflow Edge
 export type WorkflowEdge = Edge<WorkflowEdgeData>;
-
-// Handle Types for connections
-export type HandleType = "image" | "text";
 
 // API Request/Response types for Image Generation
 export interface GenerateRequest {
@@ -292,18 +65,6 @@ export interface LLMGenerateResponse {
   success: boolean;
   text?: string;
   error?: string;
-}
-
-// Tool Types for annotation
-export type ToolType = "select" | "rectangle" | "circle" | "arrow" | "freehand" | "text";
-
-// Tool Options
-export interface ToolOptions {
-  strokeColor: string;
-  strokeWidth: number;
-  fillColor: string | null;
-  fontSize: number;
-  opacity: number;
 }
 
 // Auto-save configuration stored in localStorage
