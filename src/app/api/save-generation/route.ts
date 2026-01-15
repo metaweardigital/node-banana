@@ -11,11 +11,27 @@ function getExtensionFromMime(mimeType: string): string {
     "image/jpeg": "jpg",
     "image/gif": "gif",
     "image/webp": "webp",
+    "image/svg+xml": "svg",
     "video/mp4": "mp4",
     "video/webm": "webm",
     "video/quicktime": "mov",
   };
-  return mimeToExt[mimeType] || "mp4";
+
+  // Check explicit mapping first
+  if (mimeToExt[mimeType]) {
+    return mimeToExt[mimeType];
+  }
+
+  // Fallback based on MIME type prefix
+  if (mimeType.startsWith("image/")) {
+    return "png";
+  }
+  if (mimeType.startsWith("video/")) {
+    return "mp4";
+  }
+
+  // Unknown type - use generic binary extension
+  return "bin";
 }
 
 // Helper to detect if a string is an HTTP URL
@@ -106,16 +122,48 @@ export async function POST(request: NextRequest) {
       // Handle HTTP URL (common for large video files from providers)
       logger.info('file.save', 'Fetching content from URL', { url: content.substring(0, 100) });
 
-      const response = await fetch(content);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch content: ${response.status} ${response.statusText}`);
+      // Set up timeout to prevent hanging requests (60 seconds for large video files)
+      const FETCH_TIMEOUT_MS = 60000;
+      const MAX_CONTENT_SIZE = 500 * 1024 * 1024; // 500MB max
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(content, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch content: ${response.status} ${response.statusText}`);
+        }
+
+        // Check content-length before downloading to avoid excessive bandwidth usage
+        const contentLength = response.headers.get("content-length");
+        if (contentLength) {
+          const size = parseInt(contentLength, 10);
+          if (size > MAX_CONTENT_SIZE) {
+            throw new Error(`Content size ${size} bytes exceeds maximum allowed ${MAX_CONTENT_SIZE} bytes`);
+          }
+        }
+
+        const contentType = response.headers.get("content-type") || (isVideo ? "video/mp4" : "image/png");
+        extension = getExtensionFromMime(contentType);
+
+        const arrayBuffer = await response.arrayBuffer();
+
+        // Double-check actual size after download
+        if (arrayBuffer.byteLength > MAX_CONTENT_SIZE) {
+          throw new Error(`Downloaded content size ${arrayBuffer.byteLength} bytes exceeds maximum allowed ${MAX_CONTENT_SIZE} bytes`);
+        }
+
+        buffer = Buffer.from(arrayBuffer);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error(`Fetch timed out after ${FETCH_TIMEOUT_MS}ms`);
+        }
+        throw fetchError;
       }
-
-      const contentType = response.headers.get("content-type") || (isVideo ? "video/mp4" : "image/png");
-      extension = getExtensionFromMime(contentType);
-
-      const arrayBuffer = await response.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
     } else {
       // Handle base64 data URL
       const dataUrlMatch = content.match(/^data:([\w/+-]+);base64,/);

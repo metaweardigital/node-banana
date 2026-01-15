@@ -98,17 +98,20 @@ type ModelsResponse = ModelsSuccessResponse | ModelsErrorResponse;
  * Fetches available models from fal.ai API.
  * API key is optional - fal.ai works without but with rate limits.
  *
+ * Headers:
+ *   - X-API-Key: API key for authentication (recommended)
+ *   - Authorization: Alternative auth header
+ *
  * Query params:
  *   - search: Optional search query to filter models
- *   - api_key: Alternative to X-API-Key header
  */
 export async function GET(
   request: NextRequest
 ): Promise<NextResponse<ModelsResponse>> {
-  // Get optional API key from header or query param
+  // Get optional API key from header only (never from query params to avoid credential leakage)
   const apiKey =
     request.headers.get("X-API-Key") ||
-    request.nextUrl.searchParams.get("api_key");
+    request.headers.get("Authorization")?.replace(/^Key\s+/i, "");
 
   const searchQuery = request.nextUrl.searchParams.get("search");
 

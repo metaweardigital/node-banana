@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { AnnotationModal } from "@/components/AnnotationModal";
 import { ToolType, ToolOptions } from "@/types";
 
 // Mock Konva and react-konva - canvas internals cannot be tested in jsdom
 vi.mock("react-konva", () => ({
-  Stage: ({ children }: { children: React.ReactNode }) => <div data-testid="konva-stage">{children}</div>,
-  Layer: ({ children }: { children: React.ReactNode }) => <div data-testid="konva-layer">{children}</div>,
+  Stage: ({ children }: { children: ReactNode }) => <div data-testid="konva-stage">{children}</div>,
+  Layer: ({ children }: { children: ReactNode }) => <div data-testid="konva-layer">{children}</div>,
   Image: () => <div data-testid="konva-image" />,
   Rect: () => <div data-testid="konva-rect" />,
   Ellipse: () => <div data-testid="konva-ellipse" />,
@@ -74,7 +75,12 @@ const createMockAnnotationStore = (overrides = {}) => ({
 let mockAnnotationStore = createMockAnnotationStore();
 
 vi.mock("@/store/annotationStore", () => ({
-  useAnnotationStore: () => mockAnnotationStore,
+  useAnnotationStore: (selector?: (state: ReturnType<typeof createMockAnnotationStore>) => unknown) => {
+    if (selector) {
+      return selector(mockAnnotationStore);
+    }
+    return mockAnnotationStore;
+  },
 }));
 
 // Mock workflow store
@@ -104,12 +110,17 @@ class MockImage {
   }
 }
 
-Object.defineProperty(global, "Image", {
-  value: MockImage,
-  writable: true,
-});
+// Store original Image to restore later
+const OriginalImage = global.Image;
 
 describe("AnnotationModal", () => {
+  beforeAll(() => {
+    vi.stubGlobal("Image", MockImage);
+  });
+
+  afterAll(() => {
+    vi.stubGlobal("Image", OriginalImage);
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mockAnnotationStore = createMockAnnotationStore();
@@ -275,8 +286,10 @@ describe("AnnotationModal", () => {
       // so we just verify the button exists and triggers the handler
       fireEvent.click(screen.getByText("Done"));
 
-      // closeModal should be called after save
-      expect(mockCloseModal).toHaveBeenCalled();
+      // closeModal should be called after save (async operation)
+      await waitFor(() => {
+        expect(mockCloseModal).toHaveBeenCalled();
+      });
     });
   });
 

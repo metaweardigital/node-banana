@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CostDialog } from "@/components/CostDialog";
 import { PredictedCostResult } from "@/utils/costCalculator";
@@ -18,11 +18,19 @@ vi.mock("@/store/workflowStore", () => ({
 
 // Mock confirm
 const mockConfirm = vi.fn(() => true);
-global.confirm = mockConfirm;
 
 describe("CostDialog", () => {
+  beforeAll(() => {
+    vi.stubGlobal("confirm", mockConfirm);
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockConfirm.mockReturnValue(true); // Reset default return value
     mockUseWorkflowStore.mockImplementation((selector) => {
       const state = {
         resetIncurredCost: mockResetIncurredCost,

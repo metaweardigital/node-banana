@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { EdgeToolbar } from "@/components/EdgeToolbar";
 import { ReactFlowProvider } from "@xyflow/react";
 
@@ -18,7 +19,7 @@ vi.mock("@/store/workflowStore", () => ({
 }));
 
 // Wrapper component for React Flow context
-function TestWrapper({ children }: { children: React.ReactNode }) {
+function TestWrapper({ children }: { children: ReactNode }) {
   return <ReactFlowProvider>{children}</ReactFlowProvider>;
 }
 

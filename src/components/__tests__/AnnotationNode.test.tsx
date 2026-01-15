@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { AnnotationNode } from "@/components/nodes/AnnotationNode";
 import { ReactFlowProvider } from "@xyflow/react";
 import { AnnotationNodeData } from "@/types";
@@ -32,7 +33,6 @@ vi.mock("@/store/annotationStore", () => ({
 
 // Mock alert
 const mockAlert = vi.fn();
-global.alert = mockAlert;
 
 // Mock DataTransfer
 class MockDataTransfer {
@@ -50,14 +50,22 @@ class MockDataTransfer {
     };
   }
 }
-global.DataTransfer = MockDataTransfer as unknown as typeof DataTransfer;
 
 // Wrapper component for React Flow context
-function TestWrapper({ children }: { children: React.ReactNode }) {
+function TestWrapper({ children }: { children: ReactNode }) {
   return <ReactFlowProvider>{children}</ReactFlowProvider>;
 }
 
 describe("AnnotationNode", () => {
+  beforeAll(() => {
+    vi.stubGlobal("alert", mockAlert);
+    vi.stubGlobal("DataTransfer", MockDataTransfer);
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -372,7 +380,7 @@ describe("AnnotationNode", () => {
     });
 
     it("should process valid image file and call updateNodeData", async () => {
-      // Mock FileReader
+      // Mock FileReader using vi.stubGlobal for proper cleanup
       const mockReadAsDataURL = vi.fn();
       class MockFileReader {
         onload: ((event: ProgressEvent<FileReader>) => void) | null = null;
@@ -384,7 +392,7 @@ describe("AnnotationNode", () => {
           }, 0);
         }
       }
-      global.FileReader = MockFileReader as unknown as typeof FileReader;
+      vi.stubGlobal("FileReader", MockFileReader);
 
       render(
         <TestWrapper>
@@ -405,6 +413,12 @@ describe("AnnotationNode", () => {
           annotations: [],
         });
       });
+
+      // Restore FileReader
+      vi.unstubAllGlobals();
+      // Re-stub the globals we need for other tests
+      vi.stubGlobal("alert", mockAlert);
+      vi.stubGlobal("DataTransfer", MockDataTransfer);
     });
 
     it("should reject non-image file types", () => {
@@ -452,13 +466,9 @@ describe("AnnotationNode", () => {
       );
 
       const dropZone = screen.getByText("Drop, click, or connect").parentElement!;
-      const dragOverEvent = new Event("dragover", { bubbles: true });
-      Object.assign(dragOverEvent, {
-        preventDefault: vi.fn(),
-        stopPropagation: vi.fn(),
-      });
 
-      fireEvent(dropZone, dragOverEvent);
+      // Use fireEvent.dragOver for idiomatic testing
+      fireEvent.dragOver(dropZone);
 
       // Should handle without error
       expect(dropZone).toBeInTheDocument();

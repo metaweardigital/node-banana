@@ -264,7 +264,11 @@ describe("/api/save-generation route", () => {
 
       expect(data.success).toBe(true);
       expect(data.filename).toContain(expectedHash);
-      expect(global.fetch).toHaveBeenCalledWith("https://example.com/image.png");
+      // Fetch is called with URL and options object containing AbortController signal
+      expect(global.fetch).toHaveBeenCalledWith(
+        "https://example.com/image.png",
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
 
     it("should handle failed HTTP fetch", async () => {
