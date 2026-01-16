@@ -399,7 +399,7 @@ export function TemplateExplorerView({
               <h3 className="text-xs font-medium text-neutral-400 uppercase tracking-wider">
                 Quick Start
               </h3>
-              <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {filteredPresets.map((preset) => (
                   <TemplateCard
                     key={preset.id}
