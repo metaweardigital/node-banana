@@ -1,78 +1,44 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
-import { CommunityWorkflowMeta } from "@/types/quickstart";
-import {
-  getCommunityWorkflowConfig,
-  getDefaultCommunityConfig,
-} from "@/lib/quickstart/communityWorkflows";
+
+// Default to node-banana-pro hosted service
+const COMMUNITY_WORKFLOWS_API_URL =
+  process.env.COMMUNITY_WORKFLOWS_API_URL ||
+  "https://nodebananapro.com/api/public/community-workflows";
 
 /**
- * GET: List all community workflows from the examples directory
+ * GET: List all community workflows from the remote API
+ *
+ * This proxies to the node-banana-pro hosted service which stores
+ * community workflows in R2 storage.
  */
 export async function GET() {
   try {
-    const examplesDir = path.join(process.cwd(), "examples");
+    const response = await fetch(COMMUNITY_WORKFLOWS_API_URL, {
+      headers: {
+        Accept: "application/json",
+      },
+      // Cache for 5 minutes
+      next: { revalidate: 300 },
+    });
 
-    // Check if examples directory exists
-    try {
-      await fs.access(examplesDir);
-    } catch {
-      return NextResponse.json({
-        success: true,
-        workflows: [],
-      });
+    if (!response.ok) {
+      console.error(
+        "Error fetching community workflows:",
+        response.status,
+        response.statusText
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to fetch community workflows",
+        },
+        { status: response.status }
+      );
     }
 
-    // Read directory contents
-    const files = await fs.readdir(examplesDir);
+    const data = await response.json();
 
-    // Filter for JSON files (exclude directories like sample-images)
-    const jsonFiles = files.filter((file) => file.endsWith(".json"));
-
-    // Get metadata for each workflow
-    const workflows: CommunityWorkflowMeta[] = await Promise.all(
-      jsonFiles.map(async (filename) => {
-        const filePath = path.join(examplesDir, filename);
-        const stats = await fs.stat(filePath);
-        const id = filename.replace(/\.json$/, "");
-
-        // Get config or generate default
-        const config = getCommunityWorkflowConfig(id) ?? getDefaultCommunityConfig(id, filename);
-
-        // Parse workflow to get node count
-        let nodeCount = 0;
-        try {
-          const content = await fs.readFile(filePath, "utf-8");
-          const workflow = JSON.parse(content);
-          nodeCount = workflow.nodes?.length ?? 0;
-        } catch {
-          // If parsing fails, default to 0
-        }
-
-        return {
-          id,
-          name: config.name,
-          filename,
-          author: config.author,
-          size: stats.size,
-          description: config.description,
-          nodeCount,
-          tags: config.tags,
-          previewImage: config.previewImage,
-          hoverImage: config.hoverImage,
-          sortOrder: config.sortOrder,
-        };
-      })
-    );
-
-    // Sort by sortOrder (ascending)
-    workflows.sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-
-    return NextResponse.json({
-      success: true,
-      workflows,
-    });
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Error listing community workflows:", error);
     return NextResponse.json(
