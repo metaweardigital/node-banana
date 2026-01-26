@@ -463,10 +463,11 @@ Plans:
 **Depends on**: Phase 31
 **Research**: Likely (Vercel AI SDK, chat UI components)
 **Research topics**: Vercel AI SDK (ai package) integration, useChat hook, streaming responses, chat UI component patterns
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 32-01: TBD (run /gsd:plan-phase 32 to break down)
+- [x] 32-01: ChatPanel component with useChat hook, WorkflowCanvas integration
+- [ ] 32-02: Chat context and workflow generation integration
 
 #### Phase 33: Workflow Edit Safety
 
@@ -650,7 +651,7 @@ Phases execute in numeric order: 1 → 2 → ... → 35 → 36 → 37 → 38 →
 | 29. Canvas Performance | v1.3 | 0/0 | Deferred | - |
 | 30. Small Fixes | v1.3 | 0/0 | Deferred | - |
 | 31. Workflow Proposal System | v1.4 | 2/2 | Complete | 2026-01-26 |
-| 32. Chat UI Foundation | v1.4 | 0/? | Not started | - |
+| 32. Chat UI Foundation | v1.4 | 1/2 | In progress | - |
 | 33. Workflow Edit Safety | v1.4 | 0/? | Not started | - |
 | 34. Agentic Workflow Editing | v1.4 | 0/? | Not started | - |
 | 35. Large Workflow Handling | v1.4 | 0/? | Not started | - |

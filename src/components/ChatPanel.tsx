@@ -27,7 +27,7 @@ export function ChatPanel({ isOpen, onClose }: ChatPanelProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed bottom-[220px] right-5 w-[380px] h-[450px] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl flex flex-col z-40">
+    <div className="fixed bottom-[220px] right-5 w-[380px] h-[450px] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl flex flex-col overflow-hidden z-40">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-700">
         <h3 className="text-sm font-medium text-neutral-200">Workflow Assistant</h3>

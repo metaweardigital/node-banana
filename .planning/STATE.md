@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 
 ## Current Position
 
-Phase: 31 of 35 (Workflow Proposal System)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-26 - Completed 31-02-PLAN.md
+Phase: 32 of 35 (Chat UI Foundation)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-26 - Completed 32-01-PLAN.md
 
 Progress: ░░░░░░░░░░ 6%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
+- Total plans completed: 29
 - Average duration: 7 min
-- Total execution time: 3.4 hours
+- Total execution time: 3.5 hours
 
 **By Phase:**
 
@@ -53,9 +53,10 @@ Progress: ░░░░░░░░░░ 6%
 | 27. Node Defaults Infrastructure | 1/1 | 15 min | 15 min |
 | 28. Node Defaults UI | 1/1 | 32 min | 32 min |
 | 31. Workflow Proposal System | 2/2 | 6 min | 3 min |
+| 32. Chat UI Foundation | 1/2 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 25 min, 15 min, 32 min, 4 min, 2 min
+- Last 5 plans: 15 min, 32 min, 4 min, 2 min, 4 min
 - Trend: Infrastructure plans (types, API) completing quickly
 
 ## Accumulated Context
@@ -140,6 +141,9 @@ Recent decisions affecting current work:
 - Validate proposal shape before returning to catch LLM errors early
 - Use createGoogleGenerativeAI factory for custom API key injection (AI SDK)
 - toTextStreamResponse for AI SDK v6 streaming (not toDataStreamResponse)
+- DefaultChatTransport with api option for useChat hook in AI SDK v6
+- Manage input state locally (AI SDK v6 removed built-in input state from useChat)
+- Use toUIMessageStreamResponse() for useChat hook compatibility
 
 ### Deferred Issues
 
@@ -169,6 +173,6 @@ Recent decisions affecting current work:
 ## Session Continuity
 
 Last session: 2026-01-26
-Stopped at: Completed 31-02-PLAN.md
+Stopped at: Completed 32-01-PLAN.md
 Resume file: None
-Next action: Plan Phase 32 (Chat UI Integration)
+Next action: Execute 32-02-PLAN.md (Chat context and workflow generation)
