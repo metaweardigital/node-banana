@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 ## Current Position
 
 Phase: 32 of 35 (Chat UI Foundation)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-26 - Completed 32-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Complete
+Last activity: 2026-01-27 - Completed 32-02-PLAN.md
 
 Progress: ░░░░░░░░░░ 6%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 29
+- Total plans completed: 30
 - Average duration: 7 min
 - Total execution time: 3.5 hours
 
@@ -53,11 +53,11 @@ Progress: ░░░░░░░░░░ 6%
 | 27. Node Defaults Infrastructure | 1/1 | 15 min | 15 min |
 | 28. Node Defaults UI | 1/1 | 32 min | 32 min |
 | 31. Workflow Proposal System | 2/2 | 6 min | 3 min |
-| 32. Chat UI Foundation | 1/2 | 4 min | 4 min |
+| 32. Chat UI Foundation | 2/2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 15 min, 32 min, 4 min, 2 min, 4 min
-- Trend: Infrastructure plans (types, API) completing quickly
+- Last 5 plans: 32 min, 4 min, 2 min, 4 min, 5 min
+- Trend: Chat integration and UI work completing quickly
 
 ## Accumulated Context
 
@@ -144,6 +144,9 @@ Recent decisions affecting current work:
 - DefaultChatTransport with api option for useChat hook in AI SDK v6
 - Manage input state locally (AI SDK v6 removed built-in input state from useChat)
 - Use toUIMessageStreamResponse() for useChat hook compatibility
+- Build Workflow button extracts user messages only (not assistant responses)
+- Workflow generation uses contentLevel "full" for complete workflows
+- Chat panel closes automatically after successful workflow generation
 
 ### Deferred Issues
 
@@ -172,7 +175,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-01-26
-Stopped at: Completed 32-01-PLAN.md
+Last session: 2026-01-27
+Stopped at: Completed phase 32 (Chat UI Foundation)
 Resume file: None
-Next action: Execute 32-02-PLAN.md (Chat context and workflow generation)
+Next action: Begin phase 33 (next in milestone v1.4)
