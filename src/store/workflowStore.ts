@@ -127,7 +127,7 @@ interface WorkflowStore {
 
   // Save/Load
   saveWorkflow: (name?: string) => void;
-  loadWorkflow: (workflow: WorkflowFile, workflowPath?: string) => Promise<void>;
+  loadWorkflow: (workflow: WorkflowFile, workflowPath?: string, options?: { preserveSnapshot?: boolean }) => Promise<void>;
   clearWorkflow: () => void;
 
   // Helpers
@@ -2442,7 +2442,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     URL.revokeObjectURL(url);
   },
 
-  loadWorkflow: async (workflow: WorkflowFile, workflowPath?: string) => {
+  loadWorkflow: async (workflow: WorkflowFile, workflowPath?: string, options?: { preserveSnapshot?: boolean }) => {
     // Update nodeIdCounter to avoid ID collisions
     const maxNodeId = workflow.nodes.reduce((max, node) => {
       const match = node.id.match(/-(\d+)$/);
@@ -2539,8 +2539,10 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       viewedCommentNodeIds: new Set<string>(),
     });
 
-    // Clear any snapshot when user manually loads a workflow
-    get().clearSnapshot();
+    // Clear snapshot unless explicitly preserving (e.g., AI workflow generation)
+    if (!options?.preserveSnapshot) {
+      get().clearSnapshot();
+    }
   },
 
   clearWorkflow: () => {

@@ -580,7 +580,7 @@ export function WorkflowCanvas() {
 
       if (data.success && data.workflow) {
         captureSnapshot(); // Capture BEFORE loading new workflow
-        await loadWorkflow(data.workflow);
+        await loadWorkflow(data.workflow, undefined, { preserveSnapshot: true });
         setIsChatOpen(false);
         showToast("Workflow generated successfully", "success");
       } else {
