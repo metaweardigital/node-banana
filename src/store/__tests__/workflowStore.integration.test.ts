@@ -365,6 +365,133 @@ describe("workflowStore integration tests", () => {
       });
     });
 
+    describe("Multi-image dynamicInputs aggregation", () => {
+      it("should aggregate multiple images to same schema-mapped handle into array", () => {
+        const store = useWorkflowStore.getState();
+        const img1 = "data:image/png;base64,img1";
+        const img2 = "data:image/png;base64,img2";
+
+        useWorkflowStore.setState({
+          nodes: [
+            createTestNode("imageInput-1", "imageInput", { image: img1 }),
+            createTestNode("imageInput-2", "imageInput", { image: img2 }),
+            createTestNode("nanoBanana-1", "nanoBanana", {
+              inputSchema: [
+                { name: "image_urls", type: "image", required: true, label: "Images" },
+              ],
+            }),
+          ],
+          edges: [
+            createTestEdge("imageInput-1", "nanoBanana-1", "image", "image"),
+            createTestEdge("imageInput-2", "nanoBanana-1", "image", "image"),
+          ],
+        });
+
+        const result = store.getConnectedInputs("nanoBanana-1");
+
+        // Both images should be aggregated into an array under the schema name
+        expect(Array.isArray(result.dynamicInputs["image_urls"])).toBe(true);
+        expect(result.dynamicInputs["image_urls"]).toHaveLength(2);
+        expect(result.dynamicInputs["image_urls"]).toContain(img1);
+        expect(result.dynamicInputs["image_urls"]).toContain(img2);
+
+        // images array should also contain both
+        expect(result.images).toHaveLength(2);
+        expect(result.images).toContain(img1);
+        expect(result.images).toContain(img2);
+      });
+
+      it("should keep single image to schema-mapped handle as string", () => {
+        const store = useWorkflowStore.getState();
+        const img1 = "data:image/png;base64,img1";
+
+        useWorkflowStore.setState({
+          nodes: [
+            createTestNode("imageInput-1", "imageInput", { image: img1 }),
+            createTestNode("nanoBanana-1", "nanoBanana", {
+              inputSchema: [
+                { name: "image_urls", type: "image", required: true, label: "Images" },
+              ],
+            }),
+          ],
+          edges: [
+            createTestEdge("imageInput-1", "nanoBanana-1", "image", "image"),
+          ],
+        });
+
+        const result = store.getConnectedInputs("nanoBanana-1");
+
+        // Single image should be a plain string, not wrapped in array
+        expect(result.dynamicInputs["image_urls"]).toBe(img1);
+        expect(Array.isArray(result.dynamicInputs["image_urls"])).toBe(false);
+      });
+
+      it("should keep multiple images with distinct schema handles as separate strings", () => {
+        const store = useWorkflowStore.getState();
+        const img1 = "data:image/png;base64,img1";
+        const img2 = "data:image/png;base64,img2";
+
+        useWorkflowStore.setState({
+          nodes: [
+            createTestNode("imageInput-1", "imageInput", { image: img1 }),
+            createTestNode("imageInput-2", "imageInput", { image: img2 }),
+            createTestNode("generateVideo-1", "generateVideo", {
+              inputSchema: [
+                { name: "start_image_url", type: "image", required: true, label: "Start" },
+                { name: "end_image_url", type: "image", required: false, label: "End" },
+              ],
+            }),
+          ],
+          edges: [
+            createTestEdge("imageInput-1", "generateVideo-1", "image", "image-0"),
+            createTestEdge("imageInput-2", "generateVideo-1", "image", "image-1"),
+          ],
+        });
+
+        const result = store.getConnectedInputs("generateVideo-1");
+
+        // Each should be a plain string, not an array
+        expect(result.dynamicInputs["start_image_url"]).toBe(img1);
+        expect(result.dynamicInputs["end_image_url"]).toBe(img2);
+        expect(Array.isArray(result.dynamicInputs["start_image_url"])).toBe(false);
+        expect(Array.isArray(result.dynamicInputs["end_image_url"])).toBe(false);
+      });
+
+      it("should produce array of length 3 when three images connect to same handle", () => {
+        const store = useWorkflowStore.getState();
+        const img1 = "data:image/png;base64,img1";
+        const img2 = "data:image/png;base64,img2";
+        const img3 = "data:image/png;base64,img3";
+
+        useWorkflowStore.setState({
+          nodes: [
+            createTestNode("imageInput-1", "imageInput", { image: img1 }),
+            createTestNode("imageInput-2", "imageInput", { image: img2 }),
+            createTestNode("imageInput-3", "imageInput", { image: img3 }),
+            createTestNode("nanoBanana-1", "nanoBanana", {
+              inputSchema: [
+                { name: "image_urls", type: "image", required: true, label: "Images" },
+              ],
+            }),
+          ],
+          edges: [
+            createTestEdge("imageInput-1", "nanoBanana-1", "image", "image"),
+            createTestEdge("imageInput-2", "nanoBanana-1", "image", "image"),
+            createTestEdge("imageInput-3", "nanoBanana-1", "image", "image"),
+          ],
+        });
+
+        const result = store.getConnectedInputs("nanoBanana-1");
+
+        // Should be array of length 3
+        expect(Array.isArray(result.dynamicInputs["image_urls"])).toBe(true);
+        expect(result.dynamicInputs["image_urls"]).toHaveLength(3);
+        expect(result.dynamicInputs["image_urls"]).toContain(img1);
+        expect(result.dynamicInputs["image_urls"]).toContain(img2);
+        expect(result.dynamicInputs["image_urls"]).toContain(img3);
+      });
+    });
+
     describe("Edge cases", () => {
       it("should return empty images array and null text when no connections", () => {
         const store = useWorkflowStore.getState();
