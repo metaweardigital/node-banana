@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-09)
 
 ## Current Position
 
-Phase: 34 of 35 (Context-Aware Agentic Workflow Editing)
-Plan: 3 of 3 in current phase
-Status: Complete
-Last activity: 2026-01-30 - Completed plan 03 (Store Integration and ChatPanel Wiring)
+Phase: 35 of 35 (Large Workflow Handling)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-01-31 - Completed plan 02 (Selection-Aware Subgraph Extraction)
 
 Progress: ░░░░░░░░░░ 6%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 33
+- Total plans completed: 34
 - Average duration: 7 min
-- Total execution time: 3.7 hours
+- Total execution time: 3.9 hours
 
 **By Phase:**
 
@@ -56,10 +56,11 @@ Progress: ░░░░░░░░░░ 6%
 | 32. Chat UI Foundation | 2/2 | 9 min | 4.5 min |
 | 33. Workflow Edit Safety | 2/2 | 5 min | 5 min |
 | 34. Agentic Workflow Editing | 3/3 | 13 min | 4.3 min |
+| 35. Large Workflow Handling | 1/3 | 10 min | 10 min |
 
 **Recent Trend:**
-- Last 5 plans: 5 min, 5 min, 5 min, 8 min, <1 min
-- Trend: Phase 34 complete - agentic workflow editing shipped in 3 compact plans
+- Last 5 plans: 5 min, 5 min, 8 min, <1 min, 10 min
+- Trend: Phase 35 started - selection-aware context scoping for large workflows
 
 ## Accumulated Context
 
@@ -206,7 +207,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-01-30
-Stopped at: Completed Phase 34 Plan 03 (Store Integration and ChatPanel Wiring)
+Last session: 2026-01-31
+Stopped at: Completed Phase 35 Plan 02 (Selection-Aware Subgraph Extraction)
 Resume file: None
-Next action: Phase 34 complete - proceed to next phase or milestone planning
+Next action: Proceed to plan 35-03 (Chat Context Builder Integration) or continue with parallel plan 35-01
