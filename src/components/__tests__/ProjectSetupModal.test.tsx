@@ -382,6 +382,41 @@ describe("ProjectSetupModal", () => {
       expect(onSave).not.toHaveBeenCalled();
     });
 
+    it("should show error when path is not absolute", async () => {
+      const onSave = vi.fn();
+
+      render(
+        <ProjectSetupModal
+          isOpen={true}
+          onClose={vi.fn()}
+          onSave={onSave}
+          mode="new"
+        />
+      );
+
+      // Fill name and a hostname-prefixed relative path
+      fireEvent.change(screen.getByPlaceholderText("my-project"), {
+        target: { value: "My Project" },
+      });
+      fireEvent.change(screen.getByPlaceholderText("/Users/username/projects/my-project"), {
+        target: { value: "AT-ALGKG9VR/Users/guy/Desktop/AI Project" },
+      });
+
+      // Click Create
+      fireEvent.click(screen.getByText("Create"));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText("Project directory must be an absolute path (starting with /, a drive letter, or a UNC path)")
+        ).toBeInTheDocument();
+      });
+      expect(onSave).not.toHaveBeenCalled();
+      // Validation should fail client-side without making a fetch to /api/workflow
+      expect(mockFetch).not.toHaveBeenCalledWith(
+        expect.stringContaining("/api/workflow")
+      );
+    });
+
     it("should show error when path is not a directory", async () => {
       mockFetch.mockImplementation((url: string) => {
         if (url === "/api/env-status") {
