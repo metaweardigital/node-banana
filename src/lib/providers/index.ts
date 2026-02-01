@@ -102,6 +102,7 @@ export interface ApiKeys {
   replicate?: string;
   fal?: string;
   gemini?: string;
+  wavespeed?: string;
 }
 
 /**

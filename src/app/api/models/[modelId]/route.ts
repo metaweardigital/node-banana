@@ -4,11 +4,12 @@
  * Fetches parameter schema for a specific model from its provider.
  * Returns simplified parameter list for UI rendering.
  *
- * GET /api/models/:modelId?provider=replicate|fal
+ * GET /api/models/:modelId?provider=replicate|fal|wavespeed
  *
  * Headers:
  *   - X-Replicate-Key: Required for Replicate models
  *   - X-Fal-Key: Optional for fal.ai models
+ *   - X-WaveSpeed-Key: Optional for WaveSpeed models
  *
  * Response:
  *   {
@@ -16,11 +17,19 @@
  *     parameters: ModelParameter[],
  *     cached: boolean
  *   }
+ *
+ * WaveSpeed models fetch schemas dynamically from the /api/v3/models endpoint,
+ * with fallback to static definitions for models without api_schema.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { ProviderType } from "@/types";
 import { ModelParameter, ModelInput } from "@/lib/providers/types";
+import {
+  getCachedWaveSpeedSchema,
+  setCachedWaveSpeedSchema,
+  WaveSpeedApiSchema,
+} from "@/lib/providers/cache";
 
 // Cache for model schemas (10 minute TTL)
 const schemaCache = new Map<string, { parameters: ModelParameter[]; inputs: ModelInput[]; timestamp: number }>();
@@ -479,6 +488,231 @@ function extractParametersFromSchema(
   return { parameters, inputs };
 }
 
+/**
+ * Get static schema for WaveSpeed models (fallback when dynamic schema not available)
+ */
+function getStaticWaveSpeedSchema(modelId: string): ExtractedSchema {
+  const modelIdLower = modelId.toLowerCase();
+
+  // Common image generation parameters for FLUX, SD3, etc.
+  const imageParams: ModelParameter[] = [
+    {
+      name: "num_inference_steps",
+      type: "integer",
+      description: "Number of denoising steps. More steps usually lead to higher quality but slower generation.",
+      default: 28,
+      minimum: 1,
+      maximum: 100,
+    },
+    {
+      name: "guidance_scale",
+      type: "number",
+      description: "Guidance scale for classifier-free guidance. Higher values follow the prompt more closely.",
+      default: 3.5,
+      minimum: 0,
+      maximum: 20,
+    },
+    {
+      name: "seed",
+      type: "integer",
+      description: "Random seed for reproducibility. Use -1 for random.",
+      default: -1,
+    },
+    {
+      name: "image_size",
+      type: "string",
+      description: "Output image dimensions",
+      default: "1024x1024",
+      enum: ["512x512", "768x768", "1024x1024", "1024x576", "576x1024", "1024x768", "768x1024", "1280x720", "720x1280"],
+    },
+  ];
+
+  // Image inputs for image-to-image models
+  const imageInputs: ModelInput[] = [];
+
+  // Video model parameters (WAN, Kling, Luma, etc.)
+  const videoParams: ModelParameter[] = [
+    {
+      name: "num_frames",
+      type: "integer",
+      description: "Number of frames to generate",
+      default: 81,
+      minimum: 16,
+      maximum: 256,
+    },
+    {
+      name: "fps",
+      type: "integer",
+      description: "Frames per second for the output video",
+      default: 16,
+      minimum: 8,
+      maximum: 30,
+    },
+    {
+      name: "seed",
+      type: "integer",
+      description: "Random seed for reproducibility. Use -1 for random.",
+      default: -1,
+    },
+    {
+      name: "resolution",
+      type: "string",
+      description: "Output video resolution",
+      default: "480p",
+      enum: ["480p", "720p", "1080p"],
+    },
+  ];
+
+  // Check if it's a video model
+  const isVideoModel =
+    modelIdLower.includes("wan") ||
+    modelIdLower.includes("video") ||
+    modelIdLower.includes("kling") ||
+    modelIdLower.includes("luma") ||
+    modelIdLower.includes("minimax") ||
+    modelIdLower.includes("t2v") ||
+    modelIdLower.includes("i2v");
+
+  // Check if it's an image-to-image model
+  const isImg2ImgModel =
+    modelIdLower.includes("kontext") ||
+    modelIdLower.includes("img2img") ||
+    modelIdLower.includes("edit") ||
+    modelIdLower.includes("inpaint") ||
+    modelIdLower.includes("controlnet");
+
+  if (isVideoModel) {
+    // For i2v models, add image input
+    if (modelIdLower.includes("i2v")) {
+      imageInputs.push({
+        name: "image",  // i2v models typically use singular "image"
+        type: "image",
+        required: true,
+        label: "Input Image",
+        description: "Starting image for video generation",
+      });
+    }
+    return { parameters: videoParams, inputs: imageInputs };
+  }
+
+  // Image generation model
+  if (isImg2ImgModel) {
+    imageInputs.push({
+      name: "images",  // WaveSpeed edit models expect "images" (plural array)
+      type: "image",
+      required: true,
+      label: "Input Image",
+      description: "Image to transform or edit",
+      isArray: true,  // Signal that this should be sent as an array
+    });
+
+    // Add strength parameter for img2img
+    imageParams.push({
+      name: "strength",
+      type: "number",
+      description: "How much to transform the input image. 0 = no change, 1 = ignore input completely.",
+      default: 0.8,
+      minimum: 0,
+      maximum: 1,
+    });
+  }
+
+  return { parameters: imageParams, inputs: imageInputs };
+}
+
+// WaveSpeed API base URL
+const WAVESPEED_API_BASE = "https://api.wavespeed.ai/api/v3";
+
+/**
+ * Fetch WaveSpeed schema dynamically from cache or API
+ * Falls back to static schema if dynamic schema not available
+ */
+async function fetchWaveSpeedSchema(
+  modelId: string,
+  apiKey: string | null
+): Promise<ExtractedSchema> {
+  // First check if we have a cached schema from the models list
+  const cachedSchema = getCachedWaveSpeedSchema(modelId);
+  if (cachedSchema) {
+    console.log(`[WaveSpeed Schema] Using cached schema for ${modelId}`);
+    const result = extractWaveSpeedSchema(cachedSchema, modelId);
+    if (result.parameters.length > 0 || result.inputs.length > 0) {
+      return result;
+    }
+  }
+
+  // If no cache and we have an API key, try fetching the model directly
+  if (apiKey) {
+    try {
+      console.log(`[WaveSpeed Schema] Fetching schema for ${modelId} from API`);
+      const response = await fetch(`${WAVESPEED_API_BASE}/models`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const models = data.models || data.data || data.results || [];
+
+        // Find the model by ID
+        const model = models.find((m: Record<string, unknown>) => {
+          const id = m.model_id || m.id || m.modelId || m.name;
+          return id === modelId;
+        });
+
+        if (model?.api_schema) {
+          // Cache the schema for future use
+          setCachedWaveSpeedSchema(modelId, model.api_schema as WaveSpeedApiSchema);
+
+          const result = extractWaveSpeedSchema(model.api_schema as WaveSpeedApiSchema, modelId);
+          if (result.parameters.length > 0 || result.inputs.length > 0) {
+            console.log(`[WaveSpeed Schema] Found dynamic schema with ${result.parameters.length} params, ${result.inputs.length} inputs`);
+            return result;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[WaveSpeed Schema] Failed to fetch from API: ${error}`);
+    }
+  }
+
+  // Fall back to static schema
+  console.log(`[WaveSpeed Schema] Using static fallback for ${modelId}`);
+  return getStaticWaveSpeedSchema(modelId);
+}
+
+/**
+ * Extract parameters and inputs from WaveSpeed api_schema
+ * Schema structure: { api_schemas: [{ request_schema: { properties, required } }] }
+ */
+function extractWaveSpeedSchema(
+  apiSchema: WaveSpeedApiSchema,
+  modelId: string
+): ExtractedSchema {
+  // WaveSpeed schema structure: api_schema.api_schemas[].request_schema
+  const apiSchemas = apiSchema.api_schemas;
+  if (!apiSchemas || !Array.isArray(apiSchemas) || apiSchemas.length === 0) {
+    console.log(`[WaveSpeed Schema] No api_schemas array found for ${modelId}`);
+    return { parameters: [], inputs: [] };
+  }
+
+  // Use the first schema (primary request schema)
+  const requestSchema = apiSchemas[0]?.request_schema;
+  if (!requestSchema || typeof requestSchema !== "object") {
+    console.log(`[WaveSpeed Schema] No request_schema found for ${modelId}`);
+    return { parameters: [], inputs: [] };
+  }
+
+  // Log the schema structure for debugging
+  const schemaKeys = Object.keys(requestSchema);
+  console.log(`[WaveSpeed Schema] Schema keys for ${modelId}: ${schemaKeys.join(", ")}`);
+
+  // Extract parameters using the shared extraction function
+  return extractParametersFromSchema(requestSchema as Record<string, unknown>);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ modelId: string }> }
@@ -488,11 +722,11 @@ export async function GET(
   const decodedModelId = decodeURIComponent(modelId);
   const provider = request.nextUrl.searchParams.get("provider") as ProviderType | null;
 
-  if (!provider || (provider !== "replicate" && provider !== "fal")) {
+  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "wavespeed")) {
     return NextResponse.json<SchemaErrorResponse>(
       {
         success: false,
-        error: "Invalid or missing provider. Use ?provider=replicate or ?provider=fal",
+        error: "Invalid or missing provider. Use ?provider=replicate, ?provider=fal, or ?provider=wavespeed",
       },
       { status: 400 }
     );
@@ -526,6 +760,10 @@ export async function GET(
         );
       }
       result = await fetchReplicateSchema(decodedModelId, apiKey);
+    } else if (provider === "wavespeed") {
+      // WaveSpeed uses dynamic schemas from API, with static fallback
+      const apiKey = request.headers.get("X-WaveSpeed-Key") || process.env.WAVESPEED_API_KEY || null;
+      result = await fetchWaveSpeedSchema(decodedModelId, apiKey);
     } else {
       // User-provided key takes precedence over env variable
       const apiKey = request.headers.get("X-Fal-Key") || process.env.FAL_API_KEY || null;

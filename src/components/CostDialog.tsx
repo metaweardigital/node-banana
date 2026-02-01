@@ -20,6 +20,7 @@ function ProviderIcon({ provider }: { provider: ProviderType }) {
     fal: { bg: "bg-purple-500/20", text: "text-purple-300" },
     replicate: { bg: "bg-blue-500/20", text: "text-blue-300" },
     openai: { bg: "bg-teal-500/20", text: "text-teal-300" },
+    wavespeed: { bg: "bg-orange-500/20", text: "text-orange-300" },
   };
 
   const labels: Record<ProviderType, string> = {
@@ -27,6 +28,7 @@ function ProviderIcon({ provider }: { provider: ProviderType }) {
     fal: "f",
     replicate: "R",
     openai: "O",
+    wavespeed: "W",
   };
 
   const color = colors[provider] || colors.gemini;
@@ -47,6 +49,7 @@ function getProviderDisplayName(provider: ProviderType): string {
     fal: "fal.ai",
     replicate: "Replicate",
     openai: "OpenAI",
+    wavespeed: "WaveSpeed",
   };
   return names[provider] || provider;
 }
@@ -63,6 +66,10 @@ function getModelUrl(provider: ProviderType, modelId: string): string | null {
   if (provider === "fal") {
     // modelId format: "fal-ai/flux/dev" or similar
     return `https://fal.ai/models/${modelId}`;
+  }
+  if (provider === "wavespeed") {
+    // modelId format: "wavespeed-ai/model-name"
+    return `https://wavespeed.ai`;
   }
   return null;
 }

@@ -9,6 +9,7 @@
  * - Per-provider cache keys
  * - Optional search query in cache key
  * - Manual invalidation support
+ * - WaveSpeed schema caching (raw API schemas by model ID)
  *
  * Note: Cache is cleared on server restart (no persistence).
  */
@@ -25,14 +26,31 @@ interface CacheEntry<T> {
 }
 
 /**
+ * WaveSpeed raw schema from API
+ * Structure: { api_schemas: [{ request_schema: {...} }] }
+ */
+export interface WaveSpeedApiSchema {
+  api_schemas?: Array<{
+    request_schema?: Record<string, unknown>;
+    response_schema?: Record<string, unknown>;
+  }>;
+}
+
+/**
  * Default cache TTL: 1 hour
  */
 const DEFAULT_TTL = 60 * 60 * 1000;
 
 /**
- * In-memory cache storage
+ * In-memory cache storage for models
  */
 const cache: Map<string, CacheEntry<ProviderModel[]>> = new Map();
+
+/**
+ * In-memory cache for WaveSpeed raw schemas (keyed by model_id)
+ * This allows the schema endpoint to retrieve schemas without re-fetching all models
+ */
+const wavespeedSchemaCache: Map<string, CacheEntry<WaveSpeedApiSchema>> = new Map();
 
 /**
  * Get cached models for a key if not expired
@@ -112,5 +130,76 @@ export function getCacheStats(): { size: number; keys: string[] } {
   return {
     size: cache.size,
     keys: Array.from(cache.keys()),
+  };
+}
+
+// ============ WaveSpeed Schema Cache ============
+
+/**
+ * Get cached WaveSpeed schema for a model
+ *
+ * @param modelId - WaveSpeed model ID (e.g., "wavespeed-ai/flux-dev")
+ * @param ttl - Optional custom TTL in milliseconds
+ * @returns Cached schema or null if not in cache or expired
+ */
+export function getCachedWaveSpeedSchema(
+  modelId: string,
+  ttl: number = DEFAULT_TTL
+): WaveSpeedApiSchema | null {
+  const entry = wavespeedSchemaCache.get(modelId);
+
+  if (!entry) {
+    return null;
+  }
+
+  const now = Date.now();
+  if (now - entry.timestamp > ttl) {
+    wavespeedSchemaCache.delete(modelId);
+    return null;
+  }
+
+  return entry.data;
+}
+
+/**
+ * Store WaveSpeed schema in cache
+ *
+ * @param modelId - WaveSpeed model ID
+ * @param schema - Raw API schema to cache
+ */
+export function setCachedWaveSpeedSchema(
+  modelId: string,
+  schema: WaveSpeedApiSchema
+): void {
+  wavespeedSchemaCache.set(modelId, {
+    data: schema,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Store multiple WaveSpeed schemas at once (efficient bulk operation)
+ *
+ * @param schemas - Map of model ID to schema
+ */
+export function setCachedWaveSpeedSchemas(
+  schemas: Map<string, WaveSpeedApiSchema>
+): void {
+  const now = Date.now();
+  for (const [modelId, schema] of schemas) {
+    wavespeedSchemaCache.set(modelId, {
+      data: schema,
+      timestamp: now,
+    });
+  }
+}
+
+/**
+ * Get WaveSpeed schema cache statistics (for debugging)
+ */
+export function getWaveSpeedSchemaCacheStats(): { size: number; modelIds: string[] } {
+  return {
+    size: wavespeedSchemaCache.size,
+    modelIds: Array.from(wavespeedSchemaCache.keys()),
   };
 }

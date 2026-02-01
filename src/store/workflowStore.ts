@@ -1083,6 +1083,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
                 if (falConfig?.apiKey) {
                   headers["X-Fal-API-Key"] = falConfig.apiKey;
                 }
+              } else if (provider === "wavespeed") {
+                const wavespeedConfig = providerSettingsState.providers.wavespeed;
+                if (wavespeedConfig?.apiKey) {
+                  headers["X-WaveSpeed-API-Key"] = wavespeedConfig.apiKey;
+                }
               }
 
               logger.info('node.execution', `Calling ${provider} API for image generation`, {
@@ -1296,6 +1301,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
                 const falConfig = providerSettingsState.providers.fal;
                 if (falConfig?.apiKey) {
                   headers["X-Fal-API-Key"] = falConfig.apiKey;
+                }
+              } else if (provider === "wavespeed") {
+                const wavespeedConfig = providerSettingsState.providers.wavespeed;
+                if (wavespeedConfig?.apiKey) {
+                  headers["X-WaveSpeed-API-Key"] = wavespeedConfig.apiKey;
                 }
               }
               logger.info('node.execution', `Calling ${provider} API for video generation`, {
@@ -1850,6 +1860,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           if (falConfig?.apiKey) {
             headers["X-Fal-API-Key"] = falConfig.apiKey;
           }
+        } else if (provider === "wavespeed") {
+          const wavespeedConfig = providerSettingsState.providers.wavespeed;
+          if (wavespeedConfig?.apiKey) {
+            headers["X-WaveSpeed-API-Key"] = wavespeedConfig.apiKey;
+          }
         }
 
         logger.info('node.execution', `Calling ${provider} API for node regeneration`, {
@@ -2118,6 +2133,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           const falConfig = providerSettingsState.providers.fal;
           if (falConfig?.apiKey) {
             headers["X-Fal-API-Key"] = falConfig.apiKey;
+          }
+        } else if (provider === "wavespeed") {
+          const wavespeedConfig = providerSettingsState.providers.wavespeed;
+          if (wavespeedConfig?.apiKey) {
+            headers["X-WaveSpeed-API-Key"] = wavespeedConfig.apiKey;
           }
         }
         logger.info('node.execution', `Calling ${provider} API for video regeneration`, {

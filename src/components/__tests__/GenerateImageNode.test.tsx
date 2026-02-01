@@ -73,6 +73,7 @@ const defaultProviderSettings: ProviderSettings = {
     openai: { id: "openai", name: "OpenAI", enabled: false, apiKey: null },
     replicate: { id: "replicate", name: "Replicate", enabled: false, apiKey: null },
     fal: { id: "fal", name: "fal.ai", enabled: true, apiKey: null },
+    wavespeed: { id: "wavespeed", name: "WaveSpeed", enabled: false, apiKey: null },
   },
 };
 
