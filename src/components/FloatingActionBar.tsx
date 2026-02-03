@@ -182,6 +182,7 @@ export function FloatingActionBar() {
   const {
     nodes,
     isRunning,
+    currentNodeIds,
     executeWorkflow,
     regenerateNode,
     stopWorkflow,
@@ -193,6 +194,18 @@ export function FloatingActionBar() {
     modelSearchOpen,
     modelSearchProvider,
   } = useWorkflowStore();
+
+  // Get display text for running nodes
+  const runningNodeCount = currentNodeIds.length;
+  const getRunningLabel = () => {
+    if (runningNodeCount === 0) return "Running...";
+    if (runningNodeCount === 1) {
+      const node = nodes.find((n) => n.id === currentNodeIds[0]);
+      const nodeName = node?.data?.customTitle || node?.type || "node";
+      return `Running ${nodeName}...`;
+    }
+    return `Running ${runningNodeCount} nodes...`;
+  };
   const [runMenuOpen, setRunMenuOpen] = useState(false);
   const runMenuRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -341,7 +354,9 @@ export function FloatingActionBar() {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                <span>Stop</span>
+                <span className="max-w-[150px] truncate" title={getRunningLabel()}>
+                  {runningNodeCount > 1 ? `${runningNodeCount} nodes` : "Stop"}
+                </span>
               </>
             ) : (
               <>

@@ -131,7 +131,7 @@ const createDefaultState = (overrides = {}) => ({
   clipboard: null,
   providerSettings: defaultProviderSettings,
   edgeStyle: "angular" as const,
-  currentNodeId: null,
+  currentNodeIds: [],
   navigationTarget: null,
   setNavigationTarget: vi.fn(),
   getNodesWithComments: vi.fn(() => []),

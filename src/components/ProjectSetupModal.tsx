@@ -82,6 +82,8 @@ export function ProjectSetupModal({
     providerSettings,
     updateProviderApiKey,
     toggleProvider,
+    maxConcurrentCalls,
+    setMaxConcurrentCalls,
   } = useWorkflowStore();
 
   // Tab state
@@ -862,6 +864,33 @@ export function ProjectSetupModal({
                     className="flex-1 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-neutral-400"
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Execution Section */}
+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+              <div className="flex flex-col gap-3">
+                <span className="text-sm font-medium text-neutral-100">Execution Settings</span>
+
+                {/* Concurrency slider */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-neutral-400 w-32">
+                    Max Parallel Calls: {maxConcurrentCalls}
+                  </label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="1"
+                    value={maxConcurrentCalls}
+                    onChange={(e) => setMaxConcurrentCalls(parseInt(e.target.value, 10))}
+                    className="flex-1 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-neutral-400"
+                  />
+                </div>
+                <p className="text-xs text-neutral-500">
+                  Maximum number of nodes to execute in parallel during workflow execution.
+                  Higher values may improve speed but increase API rate limit risk.
+                </p>
               </div>
             </div>
 

@@ -14,7 +14,7 @@ vi.mock("@/store/workflowStore", () => ({
       updateNodeData: mockUpdateNodeData,
       incrementModalCount: mockIncrementModalCount,
       decrementModalCount: mockDecrementModalCount,
-      currentNodeId: null,
+      currentNodeIds: [],
       groups: {},
       nodes: [],
       edges: [],

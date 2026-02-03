@@ -907,7 +907,7 @@ describe("workflowStore integration tests", () => {
 
         // Workflow should complete successfully
         expect(useWorkflowStore.getState().isRunning).toBe(false);
-        expect(useWorkflowStore.getState().currentNodeId).toBeNull();
+        expect(useWorkflowStore.getState().currentNodeIds).toEqual([]);
       });
 
       it("should throw error on cycle detection", async () => {
@@ -1228,7 +1228,7 @@ describe("workflowStore integration tests", () => {
         expect(useWorkflowStore.getState().isRunning).toBe(true);
       });
 
-      it("should clear currentNodeId after execution completes", async () => {
+      it("should clear currentNodeIds after execution completes", async () => {
         useWorkflowStore.setState({
           nodes: [
             createTestNode("prompt-1", "prompt", { prompt: "test" }),
@@ -1239,7 +1239,7 @@ describe("workflowStore integration tests", () => {
         const store = useWorkflowStore.getState();
         await store.executeWorkflow();
 
-        expect(useWorkflowStore.getState().currentNodeId).toBeNull();
+        expect(useWorkflowStore.getState().currentNodeIds).toEqual([]);
       });
     });
   });
@@ -1785,7 +1785,7 @@ describe("workflowStore integration tests", () => {
         vi.unstubAllGlobals();
       });
 
-      it("should set currentNodeId to null after completion", async () => {
+      it("should set currentNodeIds to empty after completion", async () => {
         vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
           ok: true,
           json: () => Promise.resolve({ success: true, image: "data:image/png;base64,test" }),
@@ -1809,7 +1809,7 @@ describe("workflowStore integration tests", () => {
         const store = useWorkflowStore.getState();
         await store.executeWorkflow();
 
-        expect(useWorkflowStore.getState().currentNodeId).toBeNull();
+        expect(useWorkflowStore.getState().currentNodeIds).toEqual([]);
 
         vi.unstubAllGlobals();
       });
@@ -1846,7 +1846,7 @@ describe("workflowStore integration tests", () => {
         await store.executeWorkflow("output-1");
 
         expect(useWorkflowStore.getState().isRunning).toBe(false);
-        expect(useWorkflowStore.getState().currentNodeId).toBeNull();
+        expect(useWorkflowStore.getState().currentNodeIds).toEqual([]);
 
         vi.unstubAllGlobals();
       });

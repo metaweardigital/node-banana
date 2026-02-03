@@ -10,7 +10,7 @@ vi.mock("@/store/workflowStore", () => ({
   useWorkflowStore: vi.fn((selector) => {
     const state = {
       updateNodeData: mockUpdateNodeData,
-      currentNodeId: null,
+      currentNodeIds: [],
       groups: {},
       nodes: [],
       getNodesWithComments: vi.fn(() => []),

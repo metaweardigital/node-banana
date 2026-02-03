@@ -36,7 +36,7 @@ describe("BaseNode", () => {
     // Default mock implementation
     mockUseWorkflowStore.mockImplementation((selector) => {
       const state = {
-        currentNodeId: null,
+        currentNodeIds: [],
         groups: {},
         nodes: [],
         focusedCommentNodeId: null,
@@ -419,7 +419,7 @@ describe("BaseNode", () => {
     it("should not render lock badge when node is not in a locked group", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: { "group-1": { id: "group-1", locked: false } },
           nodes: [{ id: "test-node-1", groupId: "group-1" }],
         };
@@ -440,7 +440,7 @@ describe("BaseNode", () => {
     it("should render lock badge when node is in a locked group", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: { "group-1": { id: "group-1", locked: true } },
           nodes: [{ id: "test-node-1", groupId: "group-1" }],
         };
@@ -461,7 +461,7 @@ describe("BaseNode", () => {
     it("should not render lock badge when node has no groupId", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: { "group-1": { id: "group-1", locked: true } },
           nodes: [{ id: "test-node-1" }], // No groupId
         };
@@ -487,7 +487,7 @@ describe("BaseNode", () => {
     it("should not render navigation arrows when commentNavigation is not provided even when focused", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: {},
           nodes: [],
           focusedCommentNodeId: "test-node-1", // This node is focused
@@ -510,7 +510,7 @@ describe("BaseNode", () => {
     it("should render navigation arrows in tooltip when focused, commentNavigation provided, and comment exists", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: {},
           nodes: [],
           focusedCommentNodeId: "test-node-1", // This node is focused
@@ -544,7 +544,7 @@ describe("BaseNode", () => {
     it("should render index indicator in tooltip showing current position when focused", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: {},
           nodes: [],
           focusedCommentNodeId: "test-node-1",
@@ -577,7 +577,7 @@ describe("BaseNode", () => {
     it("should call onPrevious when previous button is clicked in tooltip", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: {},
           nodes: [],
           focusedCommentNodeId: "test-node-1",
@@ -614,7 +614,7 @@ describe("BaseNode", () => {
     it("should call onNext when next button is clicked in tooltip", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: {},
           nodes: [],
           focusedCommentNodeId: "test-node-1",
@@ -651,7 +651,7 @@ describe("BaseNode", () => {
     it("should not render arrows when no comment exists even when focused with commentNavigation prop", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: null,
+          currentNodeIds: [],
           groups: {},
           nodes: [],
           focusedCommentNodeId: "test-node-1",
@@ -706,10 +706,10 @@ describe("BaseNode", () => {
       expect(nodeDiv).toBeInTheDocument();
     });
 
-    it("should apply executing styling when currentNodeId matches", () => {
+    it("should apply executing styling when currentNodeIds includes the node", () => {
       mockUseWorkflowStore.mockImplementation((selector) => {
         const state = {
-          currentNodeId: "test-node-1",
+          currentNodeIds: ["test-node-1"],
           groups: {},
           nodes: [],
         };

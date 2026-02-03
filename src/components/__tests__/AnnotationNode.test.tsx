@@ -73,7 +73,7 @@ describe("AnnotationNode", () => {
     mockUseWorkflowStore.mockImplementation((selector) => {
       const state = {
         updateNodeData: mockUpdateNodeData,
-        currentNodeId: null,
+        currentNodeIds: [],
         groups: {},
         nodes: [],
         getNodesWithComments: vi.fn(() => []),

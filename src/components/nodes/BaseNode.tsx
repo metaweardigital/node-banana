@@ -55,12 +55,12 @@ export function BaseNode({
   titlePrefix,
   commentNavigation,
 }: BaseNodeProps) {
-  const currentNodeId = useWorkflowStore((state) => state.currentNodeId);
+  const currentNodeIds = useWorkflowStore((state) => state.currentNodeIds);
   const groups = useWorkflowStore((state) => state.groups);
   const nodes = useWorkflowStore((state) => state.nodes);
   const focusedCommentNodeId = useWorkflowStore((state) => state.focusedCommentNodeId);
   const setFocusedCommentNodeId = useWorkflowStore((state) => state.setFocusedCommentNodeId);
-  const isCurrentlyExecuting = currentNodeId === id;
+  const isCurrentlyExecuting = currentNodeIds.includes(id);
   const { getNodes, setNodes } = useReactFlow();
 
   // Check if node is in a locked group
