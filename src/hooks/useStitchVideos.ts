@@ -155,6 +155,32 @@ export async function checkEncoderSupport(): Promise<boolean> {
 }
 
 /**
+ * Trim an AudioBuffer to a target duration in seconds.
+ * If the buffer is shorter than the target, returns it unchanged.
+ */
+function trimAudioBuffer(buffer: AudioBuffer, targetDuration: number): AudioBuffer {
+  const targetSamples = Math.floor(targetDuration * buffer.sampleRate);
+
+  if (targetSamples >= buffer.length) {
+    return buffer;
+  }
+
+  const trimmed = new AudioBuffer({
+    length: Math.max(1, targetSamples),
+    numberOfChannels: buffer.numberOfChannels,
+    sampleRate: buffer.sampleRate,
+  });
+
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    trimmed.getChannelData(ch).set(
+      buffer.getChannelData(ch).subarray(0, targetSamples)
+    );
+  }
+
+  return trimmed;
+}
+
+/**
  * Standalone async function to stitch multiple video blobs together sequentially
  */
 export async function stitchVideosAsync(
@@ -384,10 +410,13 @@ export async function stitchVideosAsync(
       }
     }
 
-    // Encode audio after all video frames have been queued so container metadata stays accurate
+    // Phase 2: Apply audio, trimmed to match the stitched video duration
     if (audioSource && pendingAudioBuffer) {
       updateProgress('processing', 'Encoding audio track...', 92);
-      await audioSource.add(pendingAudioBuffer);
+
+      const videoDuration = highestWrittenTimestamp + frameInterval;
+      const trimmedBuffer = trimAudioBuffer(pendingAudioBuffer, videoDuration);
+      await audioSource.add(trimmedBuffer);
       await audioSource.close();
     }
 
