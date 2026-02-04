@@ -72,6 +72,8 @@ export interface ProviderModel {
     amount: number;
     currency: string;
   };
+  /** Optional URL to the model's page on the provider's website */
+  pageUrl?: string;
 }
 
 /**
