@@ -982,6 +982,7 @@ export function WorkflowCanvas() {
             outputGallery: { width: 320, height: 360 },
             imageCompare: { width: 400, height: 360 },
             videoStitch: { width: 400, height: 280 },
+            easeCurve: { width: 340, height: 480 },
           };
           const dims = defaultDimensions[nodeType];
           addNode(nodeType, { x: centerX - dims.width / 2, y: centerY - dims.height / 2 });
