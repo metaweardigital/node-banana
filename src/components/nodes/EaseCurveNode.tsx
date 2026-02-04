@@ -369,21 +369,23 @@ export function EaseCurveNode({ id, data, selected }: NodeProps<EaseCurveNodeTyp
         {activeTab === "editor" && (
           <div className="flex-1 flex flex-col min-h-0 gap-2 relative">
             {/* Editor controls - dimmed when inherited */}
-            <div className={isInherited ? "pointer-events-none opacity-40" : ""}>
-              {/* Bezier curve editor - fills available width */}
-              <div className="flex-1 min-h-0 px-2">
-                <CubicBezierEditor
-                  value={nodeData.bezierHandles}
-                  onChange={handleBezierChange}
-                  onCommit={handleBezierCommit}
-                  disabled={nodeData.status === "loading" || isInherited}
-                  easingCurve={editorEasingCurve}
-                />
+            <div className={`flex flex-col gap-2 ${isInherited ? "pointer-events-none opacity-40" : ""}`}>
+              {/* Bezier curve editor - fixed size, centered */}
+              <div className="flex justify-center">
+                <div className="w-60">
+                  <CubicBezierEditor
+                    value={nodeData.bezierHandles}
+                    onChange={handleBezierChange}
+                    onCommit={handleBezierCommit}
+                    disabled={nodeData.status === "loading" || isInherited}
+                    easingCurve={editorEasingCurve}
+                  />
+                </div>
               </div>
 
               {/* Preset label */}
               {nodeData.easingPreset && (
-                <div className="text-center -mt-1">
+                <div className="text-center">
                   <span className="text-[10px] text-lime-300/70 font-medium">
                     {nodeData.easingPreset}
                   </span>
@@ -509,7 +511,7 @@ export function EaseCurveNode({ id, data, selected }: NodeProps<EaseCurveNodeTyp
               </div>
 
               {/* Apply button */}
-              <div className="px-2 pb-1">
+              <div className="px-2">
                 <button
                   className="nodrag nopan px-3 py-1.5 bg-lime-300/15 hover:bg-lime-300/25 border border-lime-300/30 rounded text-xs text-lime-300 font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   onClick={handleRun}
@@ -546,7 +548,7 @@ export function EaseCurveNode({ id, data, selected }: NodeProps<EaseCurveNodeTyp
                   autoPlay
                   loop
                   muted
-                  className="w-full h-full max-h-[260px] object-contain rounded"
+                  className="absolute inset-0 w-full h-full object-contain rounded"
                   playsInline
                 />
                 <button
