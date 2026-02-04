@@ -457,10 +457,11 @@ export function EaseCurveNode({ id, data, selected }: NodeProps<EaseCurveNodeTyp
                     <span>Presets</span>
                   </button>
                 </div>
+
               </div>
 
               {/* Apply button */}
-              <div className="px-2">
+              <div className="flex justify-end px-2">
                 <button
                   className="nodrag nopan px-3 py-1.5 bg-lime-300/15 hover:bg-lime-300/25 border border-lime-300/30 rounded text-xs text-lime-300 font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none"
                   onClick={handleRun}
