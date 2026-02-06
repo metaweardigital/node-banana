@@ -795,6 +795,8 @@ async function getFalInputMapping(modelId: string, apiKey: string | null): Promi
   return result;
 }
 
+const MAX_UPLOAD_SIZE = 20 * 1024 * 1024; // 20 MB
+
 /**
  * Upload a base64 data URL image to fal.ai CDN storage.
  * Returns the CDN URL to use in API requests instead of inline base64.
@@ -806,6 +808,11 @@ async function uploadImageToFal(base64DataUrl: string, apiKey: string | null): P
 
   const match = base64DataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return base64DataUrl;
+
+  const estimatedBytes = Math.ceil(match[2].length * 3 / 4);
+  if (estimatedBytes > MAX_UPLOAD_SIZE) {
+    throw new Error(`Image too large to upload (${(estimatedBytes / (1024 * 1024)).toFixed(1)} MB, max ${MAX_UPLOAD_SIZE / (1024 * 1024)} MB)`);
+  }
 
   const contentType = match[1];
   const binaryData = Buffer.from(match[2], "base64");
@@ -830,212 +837,6 @@ async function uploadImageToFal(base64DataUrl: string, apiKey: string | null): P
 }
 
 /**
- * Generate image using fal.ai API
- */
-async function generateWithFal(
-  requestId: string,
-  apiKey: string | null,
-  input: GenerationInput
-): Promise<GenerationOutput> {
-  console.log(`[API:${requestId}] fal.ai generation - Model: ${input.model.id}, Images: ${input.images?.length || 0}, Prompt: ${input.prompt.length} chars`);
-
-  const modelId = input.model.id;
-  const hasDynamicInputs = input.dynamicInputs && Object.keys(input.dynamicInputs).length > 0;
-  console.log(`[API:${requestId}] Dynamic inputs: ${hasDynamicInputs ? Object.keys(input.dynamicInputs!).join(", ") : "none"}, API key: ${apiKey ? "yes" : "no"}`);
-
-  // Fetch schema for type coercion and input mapping (only one API call)
-  const { paramMap, arrayParams, schemaArrayParams, parameterTypes } = await getFalInputMapping(modelId, apiKey);
-
-  // Build request body, coercing parameter types from schema
-  // If we have dynamic inputs, they take precedence (they already contain prompt, image_url, etc.)
-  const requestBody: Record<string, unknown> = {
-    ...coerceParameterTypes(input.parameters, parameterTypes),
-  };
-
-  // Add dynamic inputs if provided (these come from schema-mapped connections)
-  // Filter out empty/null/undefined values to avoid sending invalid inputs to fal.ai
-  if (hasDynamicInputs) {
-    const filteredInputs: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(input.dynamicInputs!)) {
-      if (value !== null && value !== undefined && value !== '') {
-        // Wrap in array if schema expects array but we have a single value
-        if (schemaArrayParams.has(key) && !Array.isArray(value)) {
-          filteredInputs[key] = [value];
-        } else {
-          filteredInputs[key] = value;
-        }
-      }
-    }
-    Object.assign(requestBody, filteredInputs);
-  } else {
-    // Fallback: use schema to map generic input names to model-specific parameter names
-
-    // Map prompt input
-    if (input.prompt) {
-      const promptParam = paramMap.prompt || "prompt";
-      requestBody[promptParam] = input.prompt;
-    }
-
-    // Map image input - use array or string format based on schema
-    if (input.images && input.images.length > 0) {
-      const imageParam = paramMap.image || "image_url";
-      if (arrayParams.has("image")) {
-        requestBody[imageParam] = input.images;
-      } else {
-        requestBody[imageParam] = input.images[0];
-      }
-    }
-
-    // Map any parameters that might need renaming (use coerced values)
-    const coercedParams = coerceParameterTypes(input.parameters, parameterTypes);
-    for (const [key, value] of Object.entries(coercedParams)) {
-      const mappedKey = paramMap[key] || key;
-      requestBody[mappedKey] = value;
-    }
-  }
-
-  // Build headers
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (apiKey) {
-    headers["Authorization"] = `Key ${apiKey}`;
-  }
-
-  // POST to fal.run/{modelId}
-  // Use 10 minute timeout to handle long-running video generation
-  console.log(`[API:${requestId}] Calling fal.ai API with inputs: ${Object.keys(requestBody).join(", ")}`);
-  const response = await fetch(`https://fal.run/${modelId}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestBody),
-    signal: AbortSignal.timeout(10 * 60 * 1000), // 10 minute timeout
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-
-    let errorDetail = errorText || `HTTP ${response.status}`;
-    try {
-      const errorJson = JSON.parse(errorText);
-      // Handle various fal.ai error formats
-      if (typeof errorJson.error === 'object' && errorJson.error?.message) {
-        errorDetail = errorJson.error.message;
-      } else if (errorJson.detail) {
-        // Handle array of validation errors
-        if (Array.isArray(errorJson.detail)) {
-          errorDetail = errorJson.detail.map((d: { msg?: string; loc?: string[] }) =>
-            d.msg || JSON.stringify(d)
-          ).join('; ');
-        } else {
-          errorDetail = errorJson.detail;
-        }
-      } else if (errorJson.message) {
-        errorDetail = errorJson.message;
-      } else if (typeof errorJson.error === 'string') {
-        errorDetail = errorJson.error;
-      }
-    } catch {
-      // Keep original text if not JSON
-    }
-
-    // Handle rate limits
-    if (response.status === 429) {
-      return {
-        success: false,
-        error: `${input.model.name}: Rate limit exceeded. ${apiKey ? "Try again in a moment." : "Add an API key in settings for higher limits."}`,
-      };
-    }
-
-    return {
-      success: false,
-      error: `${input.model.name}: ${errorDetail}`,
-    };
-  }
-
-  const result = await response.json();
-
-  // fal.ai response can have different structures:
-  // - images: array with url field (image models)
-  // - image: object with url field (image models)
-  // - video: object with url field (video models)
-  // - output: string URL (some models)
-  let mediaUrl: string | null = null;
-  let isVideoModel = false;
-
-  // Check for video output first (video models)
-  if (result.video && result.video.url) {
-    mediaUrl = result.video.url;
-    isVideoModel = true;
-  } else if (result.images && Array.isArray(result.images) && result.images.length > 0) {
-    mediaUrl = result.images[0].url;
-  } else if (result.image && result.image.url) {
-    mediaUrl = result.image.url;
-  } else if (result.output && typeof result.output === "string") {
-    // Some models return URL directly in output
-    mediaUrl = result.output;
-  }
-
-  if (!mediaUrl) {
-    console.error(`[API:${requestId}] No media URL found in fal.ai response`);
-    return {
-      success: false,
-      error: "No media URL in response",
-    };
-  }
-
-  // Fetch the media and convert to base64
-  console.log(`[API:${requestId}] Fetching output from: ${mediaUrl.substring(0, 80)}...`);
-  const mediaResponse = await fetch(mediaUrl);
-
-  if (!mediaResponse.ok) {
-    return {
-      success: false,
-      error: `Failed to fetch output: ${mediaResponse.status}`,
-    };
-  }
-
-  // Determine MIME type from response
-  const contentType = mediaResponse.headers.get("content-type") || (isVideoModel ? "video/mp4" : "image/png");
-  const isVideo = contentType.startsWith("video/") || isVideoModel;
-
-  const mediaArrayBuffer = await mediaResponse.arrayBuffer();
-  const mediaSizeBytes = mediaArrayBuffer.byteLength;
-  const mediaSizeMB = mediaSizeBytes / (1024 * 1024);
-
-  console.log(`[API:${requestId}] Output: ${contentType}, ${mediaSizeMB.toFixed(2)}MB`);
-
-  // For very large videos (>20MB), return URL directly instead of base64
-  if (isVideo && mediaSizeMB > 20) {
-    console.log(`[API:${requestId}] SUCCESS - Returning URL for large video`);
-    return {
-      success: true,
-      outputs: [
-        {
-          type: "video",
-          data: mediaUrl, // Return URL directly for very large videos
-          url: mediaUrl,
-        },
-      ],
-    };
-  }
-
-  const mediaBase64 = Buffer.from(mediaArrayBuffer).toString("base64");
-  console.log(`[API:${requestId}] SUCCESS - Returning ${isVideo ? "video" : "image"}`);
-
-  return {
-    success: true,
-    outputs: [
-      {
-        type: isVideo ? "video" : "image",
-        data: `data:${contentType};base64,${mediaBase64}`,
-        url: mediaUrl,
-      },
-    ],
-  };
-}
-
-/**
  * Generate using fal.ai Queue API
  * Uses async queue submission + polling (1s interval) instead of blocking fal.run.
  * Images are uploaded to fal CDN before submission to avoid payload size issues.
@@ -1051,7 +852,7 @@ async function generateWithFalQueue(
   const hasDynamicInputs = input.dynamicInputs && Object.keys(input.dynamicInputs).length > 0;
   console.log(`[API:${requestId}] Dynamic inputs: ${hasDynamicInputs ? Object.keys(input.dynamicInputs!).join(", ") : "none"}, API key: ${apiKey ? "yes" : "no"}`);
 
-  // Fetch schema for type coercion and input mapping (cached, same as generateWithFal)
+  // Fetch schema for type coercion and input mapping (cached)
   const { paramMap, arrayParams, schemaArrayParams, parameterTypes } = await getFalInputMapping(modelId, apiKey);
 
   // Build request body, coercing parameter types from schema
@@ -1237,7 +1038,7 @@ async function generateWithFalQueue(
 
       const result = await resultResponse.json();
 
-      // Extract video URL from result (same logic as generateWithFal)
+      // Extract video URL from result
       let mediaUrl: string | null = null;
 
       if (result.video && result.video.url) {
