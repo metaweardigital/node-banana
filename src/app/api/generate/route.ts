@@ -1436,6 +1436,15 @@ function getKieModelDefaults(modelId: string): Record<string, unknown> {
         upscale_factor: "2",
       };
 
+    // Veo 3 models
+    case "veo3/text-to-video":
+    case "veo3/image-to-video":
+    case "veo3-fast/text-to-video":
+    case "veo3-fast/image-to-video":
+      return {
+        aspect_ratio: "16:9",
+      };
+
     default:
       return {};
   }
@@ -1457,6 +1466,8 @@ function getKieImageInputKey(modelId: string): string {
   if (modelId === "kling-2.6/motion-control") return "input_urls";
   // Topaz video upscale uses video_url (singular)
   if (modelId === "topaz/video-upscale") return "video_url";
+  // Veo 3 models use imageUrls
+  if (modelId.startsWith("veo3")) return "imageUrls";
   // Default for most models
   return "image_urls";
 }
@@ -1614,6 +1625,61 @@ async function pollKieTaskCompletion(
   }
 }
 
+// ============ Veo 3 Helpers ============
+
+function isVeoModel(modelId: string): boolean {
+  return modelId.startsWith("veo3/") || modelId.startsWith("veo3-fast/");
+}
+
+function getVeoApiModelId(modelId: string): string {
+  if (modelId.startsWith("veo3-fast/")) return "veo3_fast";
+  return "veo3";
+}
+
+async function pollVeoTaskCompletion(
+  requestId: string,
+  apiKey: string,
+  taskId: string,
+): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  const maxWaitTime = 10 * 60 * 1000;
+  const pollInterval = 2000;
+  const startTime = Date.now();
+  let lastStatus = -1;
+
+  const pollUrl = `https://api.kie.ai/api/v1/veo/record-info?taskId=${encodeURIComponent(taskId)}`;
+
+  while (true) {
+    if (Date.now() - startTime > maxWaitTime) {
+      return { success: false, error: "Generation timed out after 10 minutes" };
+    }
+    await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+    const response = await fetch(pollUrl, {
+      headers: { "Authorization": `Bearer ${apiKey}` },
+    });
+    if (!response.ok) {
+      return { success: false, error: `Failed to poll status: ${response.status}` };
+    }
+
+    const result = await response.json();
+    const successFlag = result.data?.successFlag ?? -1;
+
+    if (successFlag !== lastStatus) {
+      console.log(`[API:${requestId}] Veo task successFlag: ${successFlag}`);
+      lastStatus = successFlag;
+    }
+
+    if (successFlag === 1) {
+      return { success: true, data: result.data };
+    }
+    if (successFlag === 2 || successFlag === 3) {
+      const errorMessage = result.data?.errorMessage || "Generation failed";
+      return { success: false, error: errorMessage };
+    }
+    // successFlag === 0 means still generating, continue polling
+  }
+}
+
 /**
  * Generate image/video using Kie.ai API
  */
@@ -1710,6 +1776,130 @@ async function generateWithKie(
     } else {
       inputParams[imageKey] = imageUrls;
     }
+  }
+
+  // Veo 3 models use a different API endpoint and request format
+  if (isVeoModel(modelId)) {
+    const veoBody: Record<string, unknown> = {
+      prompt: inputParams.prompt,
+      model: getVeoApiModelId(modelId),
+      aspect_ratio: inputParams.aspect_ratio || "16:9",
+    };
+
+    // Add image URLs if present (for image-to-video)
+    if (inputParams.imageUrls) {
+      veoBody.imageUrls = Array.isArray(inputParams.imageUrls)
+        ? inputParams.imageUrls
+        : [inputParams.imageUrls];
+    }
+
+    // Add optional seed
+    if (inputParams.seeds !== undefined) {
+      veoBody.seeds = inputParams.seeds;
+    }
+
+    const veoUrl = "https://api.kie.ai/api/v1/veo/generate";
+    console.log(`[API:${requestId}] Calling Veo API: ${veoUrl}`);
+    console.log(`[API:${requestId}] Veo request body:`, JSON.stringify(veoBody, null, 2));
+
+    const createResponse = await fetch(veoUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(veoBody),
+    });
+
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      let errorDetail = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetail = errorJson.message || errorJson.error || errorJson.detail || errorText;
+      } catch {
+        // Keep original text
+      }
+      if (createResponse.status === 429) {
+        return { success: false, error: `${input.model.name}: Rate limit exceeded. Try again in a moment.` };
+      }
+      return { success: false, error: `${input.model.name}: ${errorDetail}` };
+    }
+
+    const createResult = await createResponse.json();
+    if (createResult.code && createResult.code !== 200) {
+      return { success: false, error: `${input.model.name}: ${createResult.msg || "API error"}` };
+    }
+
+    const taskId = createResult.data?.taskId || createResult.taskId;
+    if (!taskId) {
+      console.error(`[API:${requestId}] No taskId in Veo response:`, createResult);
+      return { success: false, error: "No task ID in Veo response" };
+    }
+
+    console.log(`[API:${requestId}] Veo task created: ${taskId}`);
+
+    // Poll with Veo-specific polling
+    const pollResult = await pollVeoTaskCompletion(requestId, apiKey, taskId);
+    if (!pollResult.success) {
+      return { success: false, error: `${input.model.name}: ${pollResult.error}` };
+    }
+
+    // Extract video URL from Veo response format
+    const data = pollResult.data;
+    let mediaUrl: string | null = null;
+
+    const responseObj = data?.response as Record<string, unknown> | undefined;
+    const resultUrls = (responseObj?.resultUrls || data?.resultUrls) as string[] | undefined;
+    if (resultUrls && resultUrls.length > 0) {
+      mediaUrl = resultUrls[0];
+    }
+
+    if (!mediaUrl) {
+      console.error(`[API:${requestId}] No media URL found in Veo response:`, data);
+      return { success: false, error: "No output URL in Veo response" };
+    }
+
+    // Validate URL before fetching
+    const mediaUrlCheck = validateMediaUrl(mediaUrl);
+    if (!mediaUrlCheck.valid) {
+      return { success: false, error: `Invalid media URL: ${mediaUrlCheck.error}` };
+    }
+
+    // Fetch the video and convert to base64
+    console.log(`[API:${requestId}] Fetching Veo output from: ${mediaUrl.substring(0, 80)}...`);
+    const mediaResponse = await fetch(mediaUrl);
+    if (!mediaResponse.ok) {
+      return { success: false, error: `Failed to fetch output: ${mediaResponse.status}` };
+    }
+
+    const MAX_MEDIA_SIZE = 500 * 1024 * 1024;
+    const mediaContentLength = parseInt(mediaResponse.headers.get("content-length") || "0", 10);
+    if (mediaContentLength > MAX_MEDIA_SIZE) {
+      return { success: false, error: `Media too large: ${(mediaContentLength / (1024 * 1024)).toFixed(0)}MB > 500MB limit` };
+    }
+
+    const contentType = mediaResponse.headers.get("content-type") || "video/mp4";
+    const mediaArrayBuffer = await mediaResponse.arrayBuffer();
+    const mediaSizeMB = mediaArrayBuffer.byteLength / (1024 * 1024);
+
+    console.log(`[API:${requestId}] Veo output: ${contentType}, ${mediaSizeMB.toFixed(2)}MB`);
+
+    // For very large videos (>20MB), return URL directly
+    if (mediaSizeMB > 20) {
+      console.log(`[API:${requestId}] SUCCESS - Returning URL for large Veo video`);
+      return {
+        success: true,
+        outputs: [{ type: "video", data: mediaUrl, url: mediaUrl }],
+      };
+    }
+
+    const mediaBase64 = Buffer.from(mediaArrayBuffer).toString("base64");
+    console.log(`[API:${requestId}] SUCCESS - Returning Veo video`);
+    return {
+      success: true,
+      outputs: [{ type: "video", data: `data:${contentType};base64,${mediaBase64}`, url: mediaUrl }],
+    };
   }
 
   // All remaining Kie models use the standard createTask endpoint

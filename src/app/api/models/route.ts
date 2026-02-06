@@ -271,6 +271,42 @@ const KIE_MODELS: ProviderModel[] = [
     coverImage: undefined,
     pageUrl: "https://kie.ai/topaz",
   },
+  {
+    id: "veo3/text-to-video",
+    name: "Veo 3",
+    description: "Google Veo 3.1 high-quality text-to-video generation with audio via Kie.ai.",
+    provider: "kie",
+    capabilities: ["text-to-video"],
+    coverImage: undefined,
+    pageUrl: "https://docs.kie.ai/veo3-api/quickstart",
+  },
+  {
+    id: "veo3/image-to-video",
+    name: "Veo 3 I2V",
+    description: "Google Veo 3.1 image-to-video generation via Kie.ai. Supports 1-2 reference images.",
+    provider: "kie",
+    capabilities: ["image-to-video"],
+    coverImage: undefined,
+    pageUrl: "https://docs.kie.ai/veo3-api/quickstart",
+  },
+  {
+    id: "veo3-fast/text-to-video",
+    name: "Veo 3 Fast",
+    description: "Google Veo 3.1 fast text-to-video generation with audio via Kie.ai.",
+    provider: "kie",
+    capabilities: ["text-to-video"],
+    coverImage: undefined,
+    pageUrl: "https://docs.kie.ai/veo3-api/quickstart",
+  },
+  {
+    id: "veo3-fast/image-to-video",
+    name: "Veo 3 Fast I2V",
+    description: "Google Veo 3.1 fast image-to-video generation via Kie.ai. Supports 1-2 reference images.",
+    provider: "kie",
+    capabilities: ["image-to-video"],
+    coverImage: undefined,
+    pageUrl: "https://docs.kie.ai/veo3-api/quickstart",
+  },
 ];
 
 // Gemini image models (hardcoded - these don't come from an external API)

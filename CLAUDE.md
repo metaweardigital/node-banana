@@ -151,6 +151,45 @@ Use descriptive handle IDs matching the data type:
 - Connection validation: `isValidConnection()` in `WorkflowCanvas.tsx`
 - Workflow validation: `validateWorkflow()` in `workflowStore.ts`
 
+## Adding New Kie.ai Models (SOP)
+
+Reference docs: https://docs.kie.ai/llms.txt lists all available model API pages.
+
+### Step 1: Gather API Details
+Visit the model's doc page on https://docs.kie.ai/ and collect:
+- Model ID(s) (the `model` param sent to the API)
+- Capabilities: text-to-image, image-to-image, text-to-video, image-to-video
+- API endpoint (standard: `/api/v1/jobs/createTask`, or model-specific like Veo's `/api/v1/veo/generate`)
+- All input parameters: name, type, enum values, defaults, required status
+- Image/video input parameter name (e.g., `image_urls`, `imageUrls`, `input_urls`)
+- Polling endpoint (standard: `/api/v1/jobs/recordInfo`, or model-specific)
+- Response format and status field names
+- Pricing (per-run cost if available)
+
+### Step 2: Add Model Registry Entry
+**File:** `src/app/api/models/route.ts` — Add to `KIE_MODELS` array.
+Each model entry needs: `id`, `name`, `description`, `provider: "kie"`, `capabilities`, `pricing`, `pageUrl`.
+Use separate entries for each capability variant (e.g., `model/text-to-video` and `model/image-to-video`).
+
+### Step 3: Add Parameter Schema
+**File:** `src/app/api/models/[modelId]/route.ts` — Add to `getKieSchema()`.
+Define `parameters` (user-configurable settings) and `inputs` (connectable handles like prompt, images).
+
+### Step 4: Add Default Parameters
+**File:** `src/app/api/generate/route.ts` — Add case to `getKieModelDefaults()`.
+Provide required defaults that must be present even if the user doesn't set them.
+
+### Step 5: Add Image Input Key Mapping
+**File:** `src/app/api/generate/route.ts` — Add to `getKieImageInputKey()`.
+Map the model to its correct image parameter name if it differs from the default `image_urls`.
+
+### Step 6: Handle Non-Standard API (if applicable)
+If the model uses different endpoints than `/api/v1/jobs/createTask` and `/api/v1/jobs/recordInfo`:
+- Add a detection function (e.g., `isVeoModel()`)
+- Add a model-ID-to-API-model mapping function
+- Add a custom polling function for the model's status endpoint
+- Add a branch in `generateWithKie()` for the custom request format
+
 ## API Routes
 
 All routes in `src/app/api/`:

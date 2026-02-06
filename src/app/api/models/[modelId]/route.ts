@@ -727,6 +727,40 @@ function getKieSchema(modelId: string): ExtractedSchema {
         { name: "video_url", type: "image", required: true, label: "Video" },
       ],
     },
+    "veo3/text-to-video": {
+      parameters: [
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["16:9", "9:16"], default: "16:9" },
+        { name: "seeds", type: "integer", description: "Random seed (10000-99999)", minimum: 10000, maximum: 99999 },
+      ],
+      inputs: [{ name: "prompt", type: "text", required: true, label: "Prompt" }],
+    },
+    "veo3/image-to-video": {
+      parameters: [
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["16:9", "9:16"], default: "16:9" },
+        { name: "seeds", type: "integer", description: "Random seed (10000-99999)", minimum: 10000, maximum: 99999 },
+      ],
+      inputs: [
+        { name: "prompt", type: "text", required: true, label: "Prompt" },
+        { name: "imageUrls", type: "image", required: true, label: "Image", isArray: true },
+      ],
+    },
+    "veo3-fast/text-to-video": {
+      parameters: [
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["16:9", "9:16"], default: "16:9" },
+        { name: "seeds", type: "integer", description: "Random seed (10000-99999)", minimum: 10000, maximum: 99999 },
+      ],
+      inputs: [{ name: "prompt", type: "text", required: true, label: "Prompt" }],
+    },
+    "veo3-fast/image-to-video": {
+      parameters: [
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["16:9", "9:16"], default: "16:9" },
+        { name: "seeds", type: "integer", description: "Random seed (10000-99999)", minimum: 10000, maximum: 99999 },
+      ],
+      inputs: [
+        { name: "prompt", type: "text", required: true, label: "Prompt" },
+        { name: "imageUrls", type: "image", required: true, label: "Image", isArray: true },
+      ],
+    },
   };
 
   return schemas[modelId] || { parameters: [], inputs: [] };
