@@ -60,49 +60,58 @@ export async function executeLlmGenerate(
 
   const headers = buildLlmHeaders(nodeData.provider, providerSettings);
 
-  const response = await fetch("/api/llm", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      prompt: text,
-      ...(images.length > 0 && { images }),
-      provider: nodeData.provider,
-      model: nodeData.model,
-      temperature: nodeData.temperature,
-      maxTokens: nodeData.maxTokens,
-    }),
-    ...(signal ? { signal } : {}),
-  });
+  try {
+    const response = await fetch("/api/llm", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        prompt: text,
+        ...(images.length > 0 && { images }),
+        provider: nodeData.provider,
+        model: nodeData.model,
+        temperature: nodeData.temperature,
+        maxTokens: nodeData.maxTokens,
+      }),
+      ...(signal ? { signal } : {}),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = `HTTP ${response.status}`;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorMessage;
-    } catch {
-      if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
+      }
+      updateNodeData(node.id, {
+        status: "error",
+        error: errorMessage,
+      });
+      throw new Error(errorMessage);
     }
+
+    const result = await response.json();
+
+    if (result.success && result.text) {
+      updateNodeData(node.id, {
+        outputText: result.text,
+        status: "complete",
+        error: null,
+      });
+    } else {
+      updateNodeData(node.id, {
+        status: "error",
+        error: result.error || "LLM generation failed",
+      });
+      throw new Error(result.error || "LLM generation failed");
+    }
+  } catch (error) {
     updateNodeData(node.id, {
       status: "error",
-      error: errorMessage,
+      error: error instanceof Error ? error.message : "LLM generation failed",
     });
-    throw new Error(errorMessage);
-  }
-
-  const result = await response.json();
-
-  if (result.success && result.text) {
-    updateNodeData(node.id, {
-      outputText: result.text,
-      status: "complete",
-      error: null,
-    });
-  } else {
-    updateNodeData(node.id, {
-      status: "error",
-      error: result.error || "LLM generation failed",
-    });
-    throw new Error(result.error || "LLM generation failed");
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw error instanceof Error ? error : new Error("LLM generation failed");
   }
 }

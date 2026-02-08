@@ -38,32 +38,41 @@ export async function executeSplitGrid(ctx: NodeExecutionContext): Promise<void>
     error: null,
   });
 
-  const { splitWithDimensions } = await import("@/utils/gridSplitter");
-  const { images: splitImages } = await splitWithDimensions(
-    sourceImage,
-    nodeData.gridRows,
-    nodeData.gridCols
-  );
+  try {
+    const { splitWithDimensions } = await import("@/utils/gridSplitter");
+    const { images: splitImages } = await splitWithDimensions(
+      sourceImage,
+      nodeData.gridRows,
+      nodeData.gridCols
+    );
 
-  // Populate child imageInput nodes with split images
-  for (let index = 0; index < nodeData.childNodeIds.length; index++) {
-    const childSet = nodeData.childNodeIds[index];
-    if (splitImages[index]) {
-      await new Promise<void>((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          updateNodeData(childSet.imageInput, {
-            image: splitImages[index],
-            filename: `split-${Math.floor(index / nodeData.gridCols) + 1}-${(index % nodeData.gridCols) + 1}.png`,
-            dimensions: { width: img.width, height: img.height },
-          });
-          resolve();
-        };
-        img.onerror = () => resolve();
-        img.src = splitImages[index];
-      });
+    // Populate child imageInput nodes with split images
+    for (let index = 0; index < nodeData.childNodeIds.length; index++) {
+      const childSet = nodeData.childNodeIds[index];
+      if (splitImages[index]) {
+        await new Promise<void>((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            updateNodeData(childSet.imageInput, {
+              image: splitImages[index],
+              filename: `split-${Math.floor(index / nodeData.gridCols) + 1}-${(index % nodeData.gridCols) + 1}.png`,
+              dimensions: { width: img.width, height: img.height },
+            });
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = splitImages[index];
+        });
+      }
     }
-  }
 
-  updateNodeData(node.id, { status: "complete", error: null });
+    updateNodeData(node.id, { status: "complete", error: null });
+  } catch (error) {
+    updateNodeData(node.id, {
+      status: "error",
+      error: error instanceof Error ? error.message : "Failed to split image",
+    });
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw error instanceof Error ? error : new Error("Failed to split image");
+  }
 }

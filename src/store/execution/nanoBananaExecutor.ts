@@ -91,123 +91,144 @@ export async function executeNanoBanana(
     dynamicInputs,
   };
 
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestPayload),
-    ...(signal ? { signal } : {}),
-  });
+  try {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestPayload),
+      ...(signal ? { signal } : {}),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = `HTTP ${response.status}`;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorMessage;
-    } catch {
-      if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
+      }
+
+      updateNodeData(node.id, {
+        status: "error",
+        error: errorMessage,
+      });
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+
+    if (result.success && result.image) {
+      const timestamp = Date.now();
+      const imageId = `${timestamp}`;
+
+      // Save to global history
+      addToGlobalHistory({
+        image: result.image,
+        timestamp,
+        prompt: promptText,
+        aspectRatio: nodeData.aspectRatio,
+        model: nodeData.model,
+      });
+
+      // Add to node's carousel history
+      const newHistoryItem = {
+        id: imageId,
+        timestamp,
+        prompt: promptText,
+        aspectRatio: nodeData.aspectRatio,
+        model: nodeData.model,
+      };
+      const updatedHistory = [newHistoryItem, ...(nodeData.imageHistory || [])];
+
+      updateNodeData(node.id, {
+        outputImage: result.image,
+        status: "complete",
+        error: null,
+        imageHistory: updatedHistory,
+        selectedHistoryIndex: 0,
+      });
+
+      // Push new image to connected downstream outputGallery nodes
+      const edges = getEdges();
+      const nodes = getNodes();
+      edges
+        .filter((e) => e.source === node.id)
+        .forEach((e) => {
+          const target = nodes.find((n) => n.id === e.target);
+          if (target?.type === "outputGallery") {
+            const gData = target.data as OutputGalleryNodeData;
+            updateNodeData(target.id, {
+              images: [result.image, ...(gData.images || [])],
+            });
+          }
+        });
+
+      // Track cost
+      if (nodeData.selectedModel?.provider === "fal" && nodeData.selectedModel?.pricing) {
+        addIncurredCost(nodeData.selectedModel.pricing.amount);
+      } else if (!nodeData.selectedModel || nodeData.selectedModel.provider === "gemini") {
+        const generationCost = calculateGenerationCost(nodeData.model, nodeData.resolution);
+        addIncurredCost(generationCost);
+      }
+
+      // Auto-save to generations folder if configured
+      if (generationsPath) {
+        fetch("/api/save-generation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            directoryPath: generationsPath,
+            image: result.image,
+            prompt: promptText,
+            imageId,
+          }),
+        })
+          .then((res) => res.json())
+          .then((saveResult) => {
+            if (saveResult.success && saveResult.imageId && saveResult.imageId !== imageId) {
+              const currentNode = getNodes().find((n) => n.id === node.id);
+              if (currentNode) {
+                const currentData = currentNode.data as NanoBananaNodeData;
+                const histCopy = [...(currentData.imageHistory || [])];
+                const entryIndex = histCopy.findIndex((h) => h.id === imageId);
+                if (entryIndex !== -1) {
+                  histCopy[entryIndex] = { ...histCopy[entryIndex], id: saveResult.imageId };
+                  updateNodeData(node.id, { imageHistory: histCopy });
+                }
+              }
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to save generation:", err);
+          });
+      }
+    } else {
+      updateNodeData(node.id, {
+        status: "error",
+        error: result.error || "Generation failed",
+      });
+      throw new Error(result.error || "Generation failed");
+    }
+  } catch (error) {
+    // Convert network/abort errors to user-friendly messages
+    let errorMessage = "Generation failed";
+    if (error instanceof DOMException && error.name === "AbortError") {
+      errorMessage = "Request timed out. Try reducing image sizes or using a simpler prompt.";
+    } else if (error instanceof TypeError && error.message.includes("NetworkError")) {
+      errorMessage = "Network error. Check your connection and try again.";
+    } else if (error instanceof TypeError) {
+      errorMessage = `Network error: ${error.message}`;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
 
     updateNodeData(node.id, {
       status: "error",
       error: errorMessage,
     });
+
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new Error(errorMessage);
-  }
-
-  const result = await response.json();
-
-  if (result.success && result.image) {
-    const timestamp = Date.now();
-    const imageId = `${timestamp}`;
-
-    // Save to global history
-    addToGlobalHistory({
-      image: result.image,
-      timestamp,
-      prompt: promptText,
-      aspectRatio: nodeData.aspectRatio,
-      model: nodeData.model,
-    });
-
-    // Add to node's carousel history
-    const newHistoryItem = {
-      id: imageId,
-      timestamp,
-      prompt: promptText,
-      aspectRatio: nodeData.aspectRatio,
-      model: nodeData.model,
-    };
-    const updatedHistory = [newHistoryItem, ...(nodeData.imageHistory || [])];
-
-    updateNodeData(node.id, {
-      outputImage: result.image,
-      status: "complete",
-      error: null,
-      imageHistory: updatedHistory,
-      selectedHistoryIndex: 0,
-    });
-
-    // Push new image to connected downstream outputGallery nodes
-    const edges = getEdges();
-    const nodes = getNodes();
-    edges
-      .filter((e) => e.source === node.id)
-      .forEach((e) => {
-        const target = nodes.find((n) => n.id === e.target);
-        if (target?.type === "outputGallery") {
-          const gData = target.data as OutputGalleryNodeData;
-          updateNodeData(target.id, {
-            images: [result.image, ...(gData.images || [])],
-          });
-        }
-      });
-
-    // Track cost
-    if (nodeData.selectedModel?.provider === "fal" && nodeData.selectedModel?.pricing) {
-      addIncurredCost(nodeData.selectedModel.pricing.amount);
-    } else if (!nodeData.selectedModel || nodeData.selectedModel.provider === "gemini") {
-      const generationCost = calculateGenerationCost(nodeData.model, nodeData.resolution);
-      addIncurredCost(generationCost);
-    }
-
-    // Auto-save to generations folder if configured
-    if (generationsPath) {
-      // Fire-and-forget save
-      fetch("/api/save-generation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directoryPath: generationsPath,
-          image: result.image,
-          prompt: promptText,
-          imageId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((saveResult) => {
-          if (saveResult.success && saveResult.imageId && saveResult.imageId !== imageId) {
-            const currentNode = getNodes().find((n) => n.id === node.id);
-            if (currentNode) {
-              const currentData = currentNode.data as NanoBananaNodeData;
-              const histCopy = [...(currentData.imageHistory || [])];
-              const entryIndex = histCopy.findIndex((h) => h.id === imageId);
-              if (entryIndex !== -1) {
-                histCopy[entryIndex] = { ...histCopy[entryIndex], id: saveResult.imageId };
-                updateNodeData(node.id, { imageHistory: histCopy });
-              }
-            }
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to save generation:", err);
-        });
-    }
-  } else {
-    updateNodeData(node.id, {
-      status: "error",
-      error: result.error || "Generation failed",
-    });
-    throw new Error(result.error || "Generation failed");
   }
 }

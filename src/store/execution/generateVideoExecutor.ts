@@ -94,102 +94,121 @@ export async function executeGenerateVideo(
     mediaType: "video" as const,
   };
 
-  const response = await fetch("/api/generate", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(requestPayload),
-    ...(signal ? { signal } : {}),
-  });
+  try {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestPayload),
+      ...(signal ? { signal } : {}),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    let errorMessage = `HTTP ${response.status}`;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorMessage = errorJson.error || errorMessage;
-    } catch {
-      if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.error || errorMessage;
+      } catch {
+        if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
+      }
+
+      updateNodeData(node.id, {
+        status: "error",
+        error: errorMessage,
+      });
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+
+    // Handle video response (video or videoUrl field)
+    const videoData = result.video || result.videoUrl;
+    if (result.success && (videoData || result.image)) {
+      const outputContent = videoData || result.image;
+      const timestamp = Date.now();
+      const videoId = `${timestamp}`;
+
+      // Add to node's video history
+      const newHistoryItem = {
+        id: videoId,
+        timestamp,
+        prompt: text || "",
+        model: nodeData.selectedModel?.modelId || "",
+      };
+      const updatedHistory = [newHistoryItem, ...(nodeData.videoHistory || [])].slice(0, 50);
+
+      updateNodeData(node.id, {
+        outputVideo: outputContent,
+        status: "complete",
+        error: null,
+        videoHistory: updatedHistory,
+        selectedVideoHistoryIndex: 0,
+      });
+
+      // Track cost
+      if (nodeData.selectedModel?.provider === "fal" && nodeData.selectedModel?.pricing) {
+        addIncurredCost(nodeData.selectedModel.pricing.amount);
+      }
+
+      // Auto-save to generations folder if configured
+      if (generationsPath) {
+        const saveContent = videoData
+          ? { video: videoData }
+          : { image: result.image };
+
+        fetch("/api/save-generation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            directoryPath: generationsPath,
+            ...saveContent,
+            prompt: text,
+            imageId: videoId,
+          }),
+        })
+          .then((res) => res.json())
+          .then((saveResult) => {
+            if (saveResult.success && saveResult.imageId && saveResult.imageId !== videoId) {
+              const currentNode = getNodes().find((n) => n.id === node.id);
+              if (currentNode) {
+                const currentData = currentNode.data as GenerateVideoNodeData;
+                const histCopy = [...(currentData.videoHistory || [])];
+                const entryIndex = histCopy.findIndex((h) => h.id === videoId);
+                if (entryIndex !== -1) {
+                  histCopy[entryIndex] = { ...histCopy[entryIndex], id: saveResult.imageId };
+                  updateNodeData(node.id, { videoHistory: histCopy });
+                }
+              }
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to save video generation:", err);
+          });
+      }
+    } else {
+      updateNodeData(node.id, {
+        status: "error",
+        error: result.error || "Video generation failed",
+      });
+      throw new Error(result.error || "Video generation failed");
+    }
+  } catch (error) {
+    let errorMessage = "Video generation failed";
+    if (error instanceof DOMException && error.name === "AbortError") {
+      errorMessage = "Request timed out. Video generation may take longer.";
+    } else if (error instanceof TypeError && error.message.includes("NetworkError")) {
+      errorMessage = "Network error. Check your connection and try again.";
+    } else if (error instanceof TypeError) {
+      errorMessage = `Network error: ${error.message}`;
+    } else if (error instanceof Error) {
+      errorMessage = error.message;
     }
 
     updateNodeData(node.id, {
       status: "error",
       error: errorMessage,
     });
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new Error(errorMessage);
-  }
-
-  const result = await response.json();
-
-  // Handle video response (video or videoUrl field)
-  const videoData = result.video || result.videoUrl;
-  if (result.success && (videoData || result.image)) {
-    const outputContent = videoData || result.image;
-    const timestamp = Date.now();
-    const videoId = `${timestamp}`;
-
-    // Add to node's video history
-    const newHistoryItem = {
-      id: videoId,
-      timestamp,
-      prompt: text || "",
-      model: nodeData.selectedModel?.modelId || "",
-    };
-    const updatedHistory = [newHistoryItem, ...(nodeData.videoHistory || [])].slice(0, 50);
-
-    updateNodeData(node.id, {
-      outputVideo: outputContent,
-      status: "complete",
-      error: null,
-      videoHistory: updatedHistory,
-      selectedVideoHistoryIndex: 0,
-    });
-
-    // Track cost
-    if (nodeData.selectedModel?.provider === "fal" && nodeData.selectedModel?.pricing) {
-      addIncurredCost(nodeData.selectedModel.pricing.amount);
-    }
-
-    // Auto-save to generations folder if configured
-    if (generationsPath) {
-      const saveContent = videoData
-        ? { video: videoData }
-        : { image: result.image };
-      const historyType = videoData ? "video" : "video";
-
-      fetch("/api/save-generation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directoryPath: generationsPath,
-          ...saveContent,
-          prompt: text,
-          imageId: videoId,
-        }),
-      })
-        .then((res) => res.json())
-        .then((saveResult) => {
-          if (saveResult.success && saveResult.imageId && saveResult.imageId !== videoId) {
-            const currentNode = getNodes().find((n) => n.id === node.id);
-            if (currentNode) {
-              const currentData = currentNode.data as GenerateVideoNodeData;
-              const histCopy = [...(currentData.videoHistory || [])];
-              const entryIndex = histCopy.findIndex((h) => h.id === videoId);
-              if (entryIndex !== -1) {
-                histCopy[entryIndex] = { ...histCopy[entryIndex], id: saveResult.imageId };
-                updateNodeData(node.id, { videoHistory: histCopy });
-              }
-            }
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to save video generation:", err);
-        });
-    }
-  } else {
-    updateNodeData(node.id, {
-      status: "error",
-      error: result.error || "Video generation failed",
-    });
-    throw new Error(result.error || "Video generation failed");
   }
 }

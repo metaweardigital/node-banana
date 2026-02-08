@@ -10,6 +10,7 @@ import type {
   WorkflowEdge,
   WorkflowNodeData,
   ProviderSettings,
+  ImageHistoryItem,
 } from "@/types";
 import type { ConnectedInputs } from "@/store/utils/connectedInputs";
 
@@ -40,13 +41,7 @@ export interface NodeExecutionContext {
   signal?: AbortSignal;
   providerSettings: ProviderSettings;
   addIncurredCost: (cost: number) => void;
-  addToGlobalHistory: (item: {
-    image: string;
-    timestamp: number;
-    prompt: string;
-    aspectRatio?: string;
-    model?: string;
-  }) => void;
+  addToGlobalHistory: (item: Omit<ImageHistoryItem, "id">) => void;
   generationsPath: string | null;
   saveDirectoryPath: string | null;
   get: () => unknown;
