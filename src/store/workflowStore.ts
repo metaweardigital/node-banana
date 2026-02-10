@@ -209,6 +209,10 @@ interface WorkflowStore {
   modelSearchOpen: boolean;
   modelSearchProvider: ProviderType | null;
 
+  // Keyboard shortcuts dialog state
+  shortcutsDialogOpen: boolean;
+  setShortcutsDialogOpen: (open: boolean) => void;
+
   // Model search dialog actions
   setModelSearchOpen: (open: boolean, provider?: ProviderType | null) => void;
 
@@ -319,6 +323,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   // Model search dialog initial state
   modelSearchOpen: false,
   modelSearchProvider: null,
+
+  // Keyboard shortcuts dialog initial state
+  shortcutsDialogOpen: false,
 
   // Recent models initial state
   recentModels: getRecentModels(),
@@ -1542,6 +1549,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     };
     set({ providerSettings: updated });
     saveProviderSettings(updated);
+  },
+
+  // Keyboard shortcuts dialog actions
+  setShortcutsDialogOpen: (open: boolean) => {
+    set({ shortcutsDialogOpen: open });
   },
 
   // Model search dialog actions
