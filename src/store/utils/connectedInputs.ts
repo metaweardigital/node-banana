@@ -18,6 +18,7 @@ import {
   PromptNodeData,
   PromptConstructorNodeData,
   LLMGenerateNodeData,
+  GLBViewerNodeData,
 } from "@/types";
 
 /**
@@ -73,6 +74,8 @@ function getSourceOutput(sourceNode: WorkflowNode): { type: "image" | "text" | "
     return { type: "text", value: pcData.outputText ?? pcData.template ?? null };
   } else if (sourceNode.type === "llmGenerate") {
     return { type: "text", value: (sourceNode.data as LLMGenerateNodeData).outputText };
+  } else if (sourceNode.type === "glbViewer") {
+    return { type: "image", value: (sourceNode.data as GLBViewerNodeData).capturedImage };
   }
   return { type: "image", value: null };
 }

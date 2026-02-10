@@ -34,6 +34,7 @@ import {
   ImageCompareNode,
   VideoStitchNode,
   EaseCurveNode,
+  GLBViewerNode,
 } from "./nodes";
 import { EditableEdge, ReferenceEdge } from "./edges";
 import { ConnectionDropMenu, MenuAction } from "./ConnectionDropMenu";
@@ -66,6 +67,7 @@ const nodeTypes: NodeTypes = {
   imageCompare: ImageCompareNode,
   videoStitch: VideoStitchNode,
   easeCurve: EaseCurveNode,
+  glbViewer: GLBViewerNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -125,6 +127,8 @@ const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: string[]
       return { inputs: ["video", "audio"], outputs: ["video"] };
     case "easeCurve":
       return { inputs: ["video", "easeCurve"], outputs: ["video", "easeCurve"] };
+    case "glbViewer":
+      return { inputs: [], outputs: ["image"] };
     default:
       return { inputs: [], outputs: [] };
   }
@@ -1056,6 +1060,7 @@ export function WorkflowCanvas() {
             imageCompare: { width: 400, height: 360 },
             videoStitch: { width: 400, height: 280 },
             easeCurve: { width: 340, height: 480 },
+            glbViewer: { width: 360, height: 380 },
           };
           const dims = defaultDimensions[nodeType];
           addNode(nodeType, { x: centerX - dims.width / 2, y: centerY - dims.height / 2 });
@@ -1610,6 +1615,8 @@ export function WorkflowCanvas() {
                 return "#f97316";
               case "easeCurve":
                 return "#bef264"; // lime-300 (easy-peasy-ease)
+              case "glbViewer":
+                return "#38bdf8"; // sky-400 (3D viewport)
               default:
                 return "#94a3b8";
             }

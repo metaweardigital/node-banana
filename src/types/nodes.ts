@@ -36,7 +36,8 @@ export type NodeType =
   | "outputGallery"
   | "imageCompare"
   | "videoStitch"
-  | "easeCurve";
+  | "easeCurve"
+  | "glbViewer";
 
 /**
  * Node execution status
@@ -282,6 +283,15 @@ export interface SplitGridNodeData extends BaseNodeData {
 }
 
 /**
+ * GLB 3D Viewer node - loads and displays 3D models, captures viewport as image
+ */
+export interface GLBViewerNodeData extends BaseNodeData {
+  glbUrl: string | null;       // Object URL for the loaded GLB file
+  filename: string | null;     // Original filename for display
+  capturedImage: string | null; // Base64 PNG snapshot of the 3D viewport
+}
+
+/**
  * Union of all node data types
  */
 export type WorkflowNodeData =
@@ -298,7 +308,8 @@ export type WorkflowNodeData =
   | OutputGalleryNodeData
   | ImageCompareNodeData
   | VideoStitchNodeData
-  | EaseCurveNodeData;
+  | EaseCurveNodeData
+  | GLBViewerNodeData;
 
 /**
  * Workflow node with typed data (extended with optional groupId)
