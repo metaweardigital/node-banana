@@ -19,6 +19,7 @@ import "@xyflow/react/dist/style.css";
 
 import { useWorkflowStore, WorkflowFile } from "@/store/workflowStore";
 import { useToast } from "@/components/Toast";
+import dynamic from "next/dynamic";
 import {
   ImageInputNode,
   AudioInputNode,
@@ -34,8 +35,10 @@ import {
   ImageCompareNode,
   VideoStitchNode,
   EaseCurveNode,
-  GLBViewerNode,
 } from "./nodes";
+
+// Lazy-load GLBViewerNode to avoid bundling three.js for users who don't use 3D nodes
+const GLBViewerNode = dynamic(() => import("./nodes/GLBViewerNode").then(mod => ({ default: mod.GLBViewerNode })), { ssr: false });
 import { EditableEdge, ReferenceEdge } from "./edges";
 import { ConnectionDropMenu, MenuAction } from "./ConnectionDropMenu";
 import { MultiSelectToolbar } from "./MultiSelectToolbar";

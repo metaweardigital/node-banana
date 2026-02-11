@@ -316,6 +316,12 @@ function createDefaultNodeData(type: NodeType): WorkflowNodeData {
         progress: 0,
         encoderSupported: null,
       };
+    case "glbViewer":
+      return {
+        glbUrl: null,
+        filename: null,
+        capturedImage: null,
+      };
   }
 }
 

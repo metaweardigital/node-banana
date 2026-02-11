@@ -2,11 +2,12 @@
 
 import { useCallback, useRef, useState, useEffect, Suspense } from "react";
 import { Handle, Position, NodeProps, Node, useReactFlow } from "@xyflow/react";
-import { Canvas, useThree, useFrame, useLoader } from "@react-three/fiber";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { BaseNode } from "./BaseNode";
 import { useCommentNavigation } from "@/hooks/useCommentNavigation";
 import { useWorkflowStore } from "@/store/workflowStore";
+import { useToast } from "@/components/Toast";
 import { GLBViewerNodeData } from "@/types";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
@@ -255,16 +256,26 @@ export function GLBViewerNode({ id, data, selected }: NodeProps<GLBViewerNodeTyp
     });
   }, [id, nodeData.capturedImage, getNodes, setNodes]);
 
+  // Revoke blob URL when node is unmounted (e.g. deleted from canvas)
+  useEffect(() => {
+    return () => {
+      if (nodeData.glbUrl) {
+        URL.revokeObjectURL(nodeData.glbUrl);
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only revoke on unmount
+  }, []);
+
   // Shared file processing logic for both click-to-upload and drag-and-drop
   const processFile = useCallback(
     (file: File) => {
       if (!file.name.toLowerCase().endsWith(".glb")) {
-        alert("Please upload a .GLB file.");
+        useToast.getState().show("Please upload a .GLB file", "warning");
         return;
       }
 
       if (file.size > 100 * 1024 * 1024) {
-        alert("File too large. Maximum size is 100MB.");
+        useToast.getState().show("File too large. Maximum size is 100MB", "warning");
         return;
       }
 
