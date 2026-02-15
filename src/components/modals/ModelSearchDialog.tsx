@@ -486,6 +486,14 @@ export function ModelSearchDialog({
           color = "bg-pink-500/20 text-pink-300";
           label = "img→vid";
           break;
+        case "text-to-3d":
+          color = "bg-orange-500/20 text-orange-300";
+          label = "txt→3d";
+          break;
+        case "image-to-3d":
+          color = "bg-amber-500/20 text-amber-300";
+          label = "img→3d";
+          break;
       }
 
       if (label) {
