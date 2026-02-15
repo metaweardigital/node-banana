@@ -36,7 +36,9 @@ export type NodeType =
   | "outputGallery"
   | "imageCompare"
   | "videoStitch"
-  | "easeCurve";
+  | "easeCurve"
+  | "generate3d"
+  | "glbViewer";
 
 /**
  * Node execution status
@@ -174,6 +176,21 @@ export interface GenerateVideoNodeData extends BaseNodeData {
 }
 
 /**
+ * Generate 3D node - AI 3D model generation
+ */
+export interface Generate3DNodeData extends BaseNodeData {
+  inputImages: string[];
+  inputImageRefs?: string[];
+  inputPrompt: string | null;
+  output3dUrl: string | null;
+  selectedModel?: SelectedModel;
+  parameters?: Record<string, unknown>;
+  inputSchema?: ModelInputDef[];
+  status: NodeStatus;
+  error: string | null;
+}
+
+/**
  * LLM Generate node - AI text generation
  */
 export interface LLMGenerateNodeData extends BaseNodeData {
@@ -282,6 +299,15 @@ export interface SplitGridNodeData extends BaseNodeData {
 }
 
 /**
+ * GLB 3D Viewer node - loads and displays 3D models, captures viewport as image
+ */
+export interface GLBViewerNodeData extends BaseNodeData {
+  glbUrl: string | null;       // Object URL for the loaded GLB file
+  filename: string | null;     // Original filename for display
+  capturedImage: string | null; // Base64 PNG snapshot of the 3D viewport
+}
+
+/**
  * Union of all node data types
  */
 export type WorkflowNodeData =
@@ -292,13 +318,15 @@ export type WorkflowNodeData =
   | PromptConstructorNodeData
   | NanoBananaNodeData
   | GenerateVideoNodeData
+  | Generate3DNodeData
   | LLMGenerateNodeData
   | SplitGridNodeData
   | OutputNodeData
   | OutputGalleryNodeData
   | ImageCompareNodeData
   | VideoStitchNodeData
-  | EaseCurveNodeData;
+  | EaseCurveNodeData
+  | GLBViewerNodeData;
 
 /**
  * Workflow node with typed data (extended with optional groupId)
@@ -310,7 +338,7 @@ export type WorkflowNode = Node<WorkflowNodeData, NodeType> & {
 /**
  * Handle types for node connections
  */
-export type HandleType = "image" | "text" | "audio" | "video" | "easeCurve";
+export type HandleType = "image" | "text" | "audio" | "video" | "3d" | "easeCurve";
 
 /**
  * Default settings for node types - stored in localStorage
@@ -334,6 +362,14 @@ export interface GenerateVideoNodeDefaults {
   };
 }
 
+export interface Generate3DNodeDefaults {
+  selectedModel?: {
+    provider: ProviderType;
+    modelId: string;
+    displayName: string;
+  };
+}
+
 export interface LLMNodeDefaults {
   provider?: LLMProvider;
   model?: LLMModelType;
@@ -344,5 +380,6 @@ export interface LLMNodeDefaults {
 export interface NodeDefaultsConfig {
   generateImage?: GenerateImageNodeDefaults;
   generateVideo?: GenerateVideoNodeDefaults;
+  generate3d?: Generate3DNodeDefaults;
   llm?: LLMNodeDefaults;
 }

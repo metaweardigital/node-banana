@@ -79,6 +79,16 @@ describe("ConnectionDropMenu", () => {
       expect(screen.queryByText("Annotate")).not.toBeInTheDocument();
       expect(screen.queryByText("LLM Generate")).not.toBeInTheDocument();
     });
+
+    it("should show 3D-accepting nodes when dragging from 3D output", () => {
+      render(<ConnectionDropMenu {...defaultProps} handleType="3d" connectionType="source" />);
+
+      expect(screen.getByText("3D Viewer")).toBeInTheDocument();
+      // Should NOT show image/text/video nodes
+      expect(screen.queryByText("Annotate")).not.toBeInTheDocument();
+      expect(screen.queryByText("Generate Image")).not.toBeInTheDocument();
+      expect(screen.queryByText("Generate Video")).not.toBeInTheDocument();
+    });
   });
 
   describe("Node Type Filtering - Target Connection (from input handle)", () => {
@@ -109,6 +119,15 @@ describe("ConnectionDropMenu", () => {
       // Should NOT show other nodes
       expect(screen.queryByText("Image Input")).not.toBeInTheDocument();
       expect(screen.queryByText("Prompt")).not.toBeInTheDocument();
+    });
+
+    it("should show 3D-producing nodes when dragging from 3D input", () => {
+      render(<ConnectionDropMenu {...defaultProps} handleType="3d" connectionType="target" />);
+
+      expect(screen.getByText("Generate 3D")).toBeInTheDocument();
+      // Should NOT show other nodes
+      expect(screen.queryByText("Image Input")).not.toBeInTheDocument();
+      expect(screen.queryByText("Generate Image")).not.toBeInTheDocument();
     });
   });
 

@@ -525,7 +525,7 @@ describe("/api/generate route", () => {
       expect(data.success).toBe(true);
       expect(mockGenerateContent).toHaveBeenCalledWith(
         expect.objectContaining({
-          model: "gemini-2.5-flash-image",
+          model: "gemini-2.5-flash-preview-image-generation",
         })
       );
     });
@@ -1428,6 +1428,73 @@ describe("/api/generate route", () => {
       const createPredictionCall = mockFetch.mock.calls[1];
       const requestBody = JSON.parse(createPredictionCall[1].body);
       expect(requestBody.input.image_urls).toEqual(["data:image/png;base64,singleImage"]);
+      expect(requestBody.input.prompt).toBe("Test prompt");
+    });
+
+    it("should unwrap Replicate dynamicInputs array to single value when schema type is NOT 'array'", async () => {
+      // Model info fetch - with schema showing image_url has type: "string" (NOT array)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          latest_version: {
+            id: "version123",
+            openapi_schema: {
+              components: {
+                schemas: {
+                  Input: {
+                    properties: {
+                      image_url: { type: "string" },  // Single string, not array
+                      prompt: { type: "string" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+      });
+
+      // Create prediction
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          id: "prediction123",
+          status: "succeeded",
+          output: ["https://replicate.delivery/output.png"],
+        }),
+      });
+
+      // Fetch output media
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        headers: new Headers({ "content-type": "image/png" }),
+        arrayBuffer: () => Promise.resolve(new ArrayBuffer(1024)),
+      });
+
+      const request = createMockPostRequest(
+        {
+          prompt: "",
+          selectedModel: {
+            provider: "replicate",
+            modelId: "some-model/with-string-input",
+            displayName: "String Input Model",
+          },
+          dynamicInputs: {
+            prompt: "Test prompt",
+            image_url: ["data:image/png;base64,image1", "data:image/png;base64,image2"],  // Array sent for string param
+          },
+        },
+        { "X-Replicate-API-Key": "test-replicate-key" }
+      );
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // Verify image_url was unwrapped to first element because schema says type: "string"
+      const createPredictionCall = mockFetch.mock.calls[1];
+      const requestBody = JSON.parse(createPredictionCall[1].body);
+      expect(requestBody.input.image_url).toBe("data:image/png;base64,image1");
+      expect(Array.isArray(requestBody.input.image_url)).toBe(false);
       expect(requestBody.input.prompt).toBe("Test prompt");
     });
 
@@ -2367,6 +2434,88 @@ describe("/api/generate route", () => {
       const requestBody = JSON.parse((queueSubmitCall![1] as { body: string }).body);
       // image_url was uploaded to CDN but remains a string (not wrapped in array)
       expect(requestBody.image_url).toBe("https://fal.ai/cdn/single.png");
+      expect(requestBody.prompt).toBe("Test prompt");
+    });
+
+    it("should unwrap array dynamicInputs to single value when schema type is NOT 'array'", async () => {
+      // Schema fetch - return schema showing image_url has type: "string" (NOT array)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          models: [{
+            openapi: {
+              paths: {
+                "/": {
+                  post: {
+                    requestBody: {
+                      content: {
+                        "application/json": {
+                          schema: {
+                            properties: {
+                              image_url: { type: "string" },  // Single string, not array
+                              prompt: { type: "string" },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          }],
+        }),
+      });
+
+      // CDN uploads for both images in the array
+      // Promise.all fires both initiates concurrently before either PUT,
+      // so mock order is: initiate1, initiate2, PUT1, PUT2
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ upload_url: "https://fal.ai/cdn/put-target-1", file_url: "https://fal.ai/cdn/first.png" }),
+      });
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ upload_url: "https://fal.ai/cdn/put-target-2", file_url: "https://fal.ai/cdn/second.png" }),
+      });
+      mockFetch.mockResolvedValueOnce({ ok: true }); // PUT 1
+      mockFetch.mockResolvedValueOnce({ ok: true }); // PUT 2
+
+      // Queue flow: submit → poll → result → media
+      mockFalQueueSuccess(
+        { images: [{ url: "https://fal.media/output.png" }] },
+        "image/png",
+        1024
+      );
+
+      const request = createMockPostRequest(
+        {
+          prompt: "Test prompt",
+          selectedModel: {
+            provider: "fal",
+            modelId: "fal-ai/flux/schnell",
+            displayName: "Flux Schnell",
+          },
+          dynamicInputs: {
+            prompt: "Test prompt",
+            image_url: ["data:image/png;base64,image1", "data:image/png;base64,image2"],  // Array of images
+          },
+        },
+        { "X-Fal-API-Key": "test-fal-key" }
+      );
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // Find the queue submit call
+      const queueSubmitCall = mockFetch.mock.calls.find(
+        (call: [string, ...unknown[]]) => typeof call[0] === "string" && call[0].includes("queue.fal.run") && !call[0].includes("/requests/")
+      );
+      expect(queueSubmitCall).toBeDefined();
+      const requestBody = JSON.parse((queueSubmitCall![1] as { body: string }).body);
+      // image_url should be unwrapped to a single CDN URL string (first element), not an array
+      expect(requestBody.image_url).toBe("https://fal.ai/cdn/first.png");
+      expect(Array.isArray(requestBody.image_url)).toBe(false);
       expect(requestBody.prompt).toBe("Test prompt");
     });
 

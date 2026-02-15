@@ -17,6 +17,7 @@ const VALID_NODE_TYPES: NodeType[] = [
   "prompt",
   "nanoBanana",
   "generateVideo",
+  "generate3d",
   "llmGenerate",
   "splitGrid",
   "output",
@@ -33,6 +34,7 @@ const DEFAULT_DIMENSIONS: Record<NodeType, { width: number; height: number }> = 
   promptConstructor: { width: 340, height: 280 },
   nanoBanana: { width: 300, height: 300 },
   generateVideo: { width: 300, height: 300 },
+  generate3d: { width: 300, height: 300 },
   llmGenerate: { width: 320, height: 360 },
   splitGrid: { width: 300, height: 320 },
   output: { width: 320, height: 320 },
@@ -40,6 +42,7 @@ const DEFAULT_DIMENSIONS: Record<NodeType, { width: number; height: number }> = 
   imageCompare: { width: 400, height: 360 },
   videoStitch: { width: 400, height: 280 },
   easeCurve: { width: 340, height: 480 },
+  glbViewer: { width: 360, height: 380 },
 };
 
 /**
@@ -249,6 +252,15 @@ function createDefaultNodeData(type: NodeType): WorkflowNodeData {
         videoHistory: [],
         selectedVideoHistoryIndex: 0,
       };
+    case "generate3d":
+      return {
+        inputImages: [],
+        inputPrompt: null,
+        output3dUrl: null,
+        selectedModel: undefined,
+        status: "idle",
+        error: null,
+      };
     case "llmGenerate":
       return {
         inputPrompt: null,
@@ -314,6 +326,12 @@ function createDefaultNodeData(type: NodeType): WorkflowNodeData {
         error: null,
         progress: 0,
         encoderSupported: null,
+      };
+    case "glbViewer":
+      return {
+        glbUrl: null,
+        filename: null,
+        capturedImage: null,
       };
   }
 }

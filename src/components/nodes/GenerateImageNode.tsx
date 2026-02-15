@@ -210,6 +210,7 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
           provider: currentProvider,
           modelId: model.id,
           displayName: model.name,
+          capabilities: model.capabilities,
         };
         // Clear parameters when changing models (different models have different schemas)
         updateNodeData(id, { selectedModel: newSelectedModel, parameters: {} });
@@ -383,6 +384,7 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
       provider: model.provider,
       modelId: model.id,
       displayName: model.name,
+      capabilities: model.capabilities,
     };
     updateNodeData(id, { selectedModel: newSelectedModel, parameters: {} });
     setIsBrowseDialogOpen(false);
@@ -530,7 +532,7 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
       >
         Prompt
       </div>
-      {/* Image output */}
+      {/* Output handle */}
       <Handle
         type="source"
         position={Position.Right}

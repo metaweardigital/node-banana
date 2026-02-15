@@ -592,6 +592,7 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
           <>
           <div className="relative w-full flex-1 min-h-0">
             <video
+              key={nodeData.videoHistory?.[nodeData.selectedVideoHistoryIndex || 0]?.id}
               src={nodeData.outputVideo}
               controls
               autoPlay

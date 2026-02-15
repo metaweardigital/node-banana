@@ -82,6 +82,7 @@ LLM models:
 | `nanoBanana` | AI image generation | image, text | image |
 | `llmGenerate` | AI text generation | text, image | text |
 | `splitGrid` | Split image into grid cells | image | reference |
+| `glbViewer` | Load/display 3D GLB models | none | image |
 | `output` | Display final result | image | none |
 
 ## Node Connection System
@@ -125,6 +126,7 @@ Returns `{ images: string[], text: string | null }`.
 - `H` - Stack selected nodes horizontally
 - `V` - Stack selected nodes vertically
 - `G` - Arrange selected nodes in grid
+- `?` - Show keyboard shortcuts
 
 ## Adding New Node Types
 
@@ -208,7 +210,16 @@ All routes in `src/app/api/`:
 - `node-banana-workflow-costs` - Cost tracking per workflow
 - `node-banana-nanoBanana-defaults` - Sticky generation settings
 
-## Commits
+## Git Workflow
 
+- The primary development branch is `develop`, NOT `main` or `master`
+- Always checkout `develop` before creating feature branches: `git checkout develop`
+- Create feature branches from `develop` using: `feature/<short-description>` or `fix/<short-description>`
+- All PRs MUST target `develop`: use `gh pr create --base develop`
+- Never push directly to `main`, `master`, or `develop`
+
+## Commits
+- Commit after each logical task or unit of work is complete. When implementing a multi-task plan, commit after finishing each task — do NOT batch all tasks into a single commit at the end.
+- Each commit should be atomic and self-contained: one task = one commit.
 - The .planning directory is untracked, do not attempt to commit any changes to the files in this directory.
 
