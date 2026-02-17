@@ -15,7 +15,7 @@ import { getImageDimensions, calculateNodeSizePreservingHeight } from "@/utils/n
 
 // Provider badge component - shows provider icon for all providers
 function ProviderBadge({ provider }: { provider: ProviderType }) {
-  const providerName = provider === "gemini" ? "Gemini" : provider === "replicate" ? "Replicate" : provider === "kie" ? "Kie.ai" : provider === "wavespeed" ? "WaveSpeed" : "fal.ai";
+  const providerName = provider === "gemini" ? "Gemini" : provider === "replicate" ? "Replicate" : provider === "kie" ? "Kie.ai" : provider === "wavespeed" ? "WaveSpeed" : provider === "comfyui" ? "ComfyUI" : provider === "xai" ? "xAI" : "fal.ai";
 
   return (
     <span className="text-neutral-500 shrink-0" title={providerName}>
@@ -38,6 +38,16 @@ function ProviderBadge({ provider }: { provider: ProviderType }) {
           <path d="M308.946 153.758C314.185 153.758 318.268 158.321 317.516 163.506C306.856 237.02 270.334 302.155 217.471 349.386C211.398 354.812 203.458 357.586 195.315 357.586H127.562C117.863 357.586 110.001 349.724 110.001 340.025V333.552C110.001 326.82 113.882 320.731 119.792 317.505C176.087 286.779 217.883 232.832 232.32 168.537C234.216 160.09 241.509 153.758 250.167 153.758H308.946Z" />
           <path d="M183.573 153.758C188.576 153.758 192.592 157.94 192.069 162.916C187.11 210.12 160.549 250.886 122.45 275.151C116.916 278.676 110 274.489 110 267.928V171.318C110 161.62 117.862 153.758 127.56 153.758H183.573Z" />
           <path d="M414.815 153.758C425.503 153.758 433.734 163.232 431.799 173.743C420.697 234.038 398.943 290.601 368.564 341.414C362.464 351.617 351.307 357.586 339.419 357.586H274.228C266.726 357.586 262.611 348.727 267.233 342.819C306.591 292.513 334.86 233.113 348.361 168.295C350.104 159.925 357.372 153.758 365.922 153.758H414.815Z" />
+        </svg>
+      ) : provider === "comfyui" ? (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+      ) : provider === "xai" ? (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13.982 10.622L20.54 3h-1.554l-5.693 6.618L8.745 3H3.5l6.876 10.007L3.5 21h1.554l6.012-6.989L15.868 21h5.245l-7.131-10.378zm-2.128 2.474l-.697-.997L5.653 4.16h2.386l4.474 6.4.697.996 5.815 8.318h-2.387l-4.745-6.787z" />
         </svg>
       ) : (
         <svg className="w-4 h-4" viewBox="0 0 1855 1855" fill="currentColor">
@@ -71,7 +81,7 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   const generationsPath = useWorkflowStore((state) => state.generationsPath);
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, replicateEnabled, kieEnabled } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, xaiApiKey, comfyuiServerUrl, replicateEnabled, kieEnabled, xaiEnabled, comfyuiEnabled } = useProviderApiKeys();
   const [isLoadingCarouselImage, setIsLoadingCarouselImage] = useState(false);
   const [externalModels, setExternalModels] = useState<ProviderModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -96,8 +106,16 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
     if (kieEnabled && kieApiKey) {
       providers.push({ id: "kie", name: "Kie.ai" });
     }
+    // Add xAI if configured
+    if (xaiEnabled && xaiApiKey) {
+      providers.push({ id: "xai", name: "xAI" });
+    }
+    // Add ComfyUI if configured
+    if (comfyuiEnabled && comfyuiServerUrl) {
+      providers.push({ id: "comfyui", name: "ComfyUI" });
+    }
     return providers;
-  }, [replicateEnabled, replicateApiKey, kieEnabled, kieApiKey]);
+  }, [replicateEnabled, replicateApiKey, kieEnabled, kieApiKey, xaiEnabled, xaiApiKey, comfyuiEnabled, comfyuiServerUrl]);
 
   // Check if external providers (Replicate/Fal) are enabled
   // fal.ai is always available (works without key but rate limited)
@@ -143,6 +161,12 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
       }
       if (kieApiKey) {
         headers["X-Kie-Key"] = kieApiKey;
+      }
+      if (xaiApiKey) {
+        headers["X-XAI-Key"] = xaiApiKey;
+      }
+      if (comfyuiServerUrl) {
+        headers["X-ComfyUI-Server"] = comfyuiServerUrl;
       }
       const response = await deduplicatedFetch(`/api/models?provider=${currentProvider}&capabilities=${capabilities}`, { headers });
       if (response.ok) {

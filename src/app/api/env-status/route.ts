@@ -7,6 +7,8 @@ export interface EnvStatusResponse {
   fal: boolean;
   kie: boolean;
   wavespeed: boolean;
+  xai: boolean;
+  comfyui: boolean;
 }
 
 export async function GET() {
@@ -18,6 +20,8 @@ export async function GET() {
     fal: !!process.env.FAL_API_KEY,
     kie: !!process.env.KIE_API_KEY,
     wavespeed: !!process.env.WAVESPEED_API_KEY,
+    xai: !!process.env.XAI_API_KEY,
+    comfyui: false, // ComfyUI is configured via UI (server URL), not env var
   };
 
   return NextResponse.json(status);

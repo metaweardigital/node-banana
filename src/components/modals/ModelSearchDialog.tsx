@@ -67,6 +67,20 @@ const KieIcon = () => (
   </svg>
 );
 
+const XaiIcon = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M13.982 10.622L20.54 3h-1.554l-5.693 6.618L8.745 3H3.5l6.876 10.007L3.5 21h1.554l6.012-6.989L15.868 21h5.245l-7.131-10.378zm-2.128 2.474l-.697-.997L5.653 4.16h2.386l4.474 6.4.697.996 5.815 8.318h-2.387l-4.745-6.787z" />
+  </svg>
+);
+
+const ComfyUIIcon = () => (
+  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </svg>
+);
+
 const WaveSpeedIcon = () => (
   <svg className="w-3.5 h-3.5" viewBox="95 140 350 230" fill="currentColor">
     <path d="M308.946 153.758C314.185 153.758 318.268 158.321 317.516 163.506C306.856 237.02 270.334 302.155 217.471 349.386C211.398 354.812 203.458 357.586 195.315 357.586H127.562C117.863 357.586 110.001 349.724 110.001 340.025V333.552C110.001 326.82 113.882 320.731 119.792 317.505C176.087 286.779 217.883 232.832 232.32 168.537C234.216 160.09 241.509 153.758 250.167 153.758H308.946Z" />
@@ -123,7 +137,7 @@ export function ModelSearchDialog({
     trackModelUsage,
   } = useWorkflowStore();
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, comfyuiServerUrl } = useProviderApiKeys();
   const { screenToFlowPosition } = useReactFlow();
 
   // State
@@ -223,6 +237,12 @@ export function ModelSearchDialog({
       if (wavespeedApiKey) {
         headers["X-WaveSpeed-Key"] = wavespeedApiKey;
       }
+      if (xaiApiKey) {
+        headers["X-XAI-Key"] = xaiApiKey;
+      }
+      if (comfyuiServerUrl) {
+        headers["X-ComfyUI-Server"] = comfyuiServerUrl;
+      }
 
       const response = await deduplicatedFetch(`/api/models?${params.toString()}`, {
         headers,
@@ -256,7 +276,7 @@ export function ModelSearchDialog({
         setIsLoading(false);
       }
     }
-  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey]);
+  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, comfyuiServerUrl]);
 
   // Fetch models when filters change
   useEffect(() => {
@@ -377,6 +397,8 @@ export function ModelSearchDialog({
         return "bg-orange-500/20 text-orange-300";
       case "wavespeed":
         return "bg-purple-500/20 text-purple-300";
+      case "xai":
+        return "bg-neutral-500/20 text-neutral-200";
       default:
         return "bg-neutral-500/20 text-neutral-300";
     }
@@ -395,6 +417,8 @@ export function ModelSearchDialog({
         return "Kie.ai";
       case "wavespeed":
         return "WaveSpeed";
+      case "xai":
+        return "xAI";
       default:
         return provider;
     }
@@ -456,6 +480,8 @@ export function ModelSearchDialog({
         return `https://fal.ai/models/${model.id}`;
       case "wavespeed":
         return `https://wavespeed.ai`;
+      case "xai":
+        return `https://docs.x.ai/developers/model-capabilities`;
       default:
         return null;
     }
@@ -639,6 +665,28 @@ export function ModelSearchDialog({
                 }`}
               >
                 <WaveSpeedIcon />
+              </button>
+              <button
+                onClick={() => setProviderFilter("xai")}
+                title="xAI"
+                className={`p-2 rounded transition-colors ${
+                  providerFilter === "xai"
+                    ? "bg-neutral-500/20 text-neutral-200"
+                    : "text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
+                }`}
+              >
+                <XaiIcon />
+              </button>
+              <button
+                onClick={() => setProviderFilter("comfyui")}
+                title="ComfyUI (Local)"
+                className={`p-2 rounded transition-colors ${
+                  providerFilter === "comfyui"
+                    ? "bg-purple-500/20 text-purple-300"
+                    : "text-neutral-400 hover:text-purple-300 hover:bg-neutral-700"
+                }`}
+              >
+                <ComfyUIIcon />
               </button>
             </div>
 

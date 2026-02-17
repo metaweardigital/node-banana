@@ -311,6 +311,40 @@ const KIE_MODELS: ProviderModel[] = [
   },
 ];
 
+// xAI models (hardcoded - direct API integration)
+const XAI_MODELS: ProviderModel[] = [
+  {
+    id: "grok-imagine-video",
+    name: "Grok Video",
+    description: "xAI Grok video generation. Supports text-to-video and image-to-video, 1-15s duration, multiple aspect ratios, and 480p/720p resolution.",
+    provider: "xai",
+    capabilities: ["text-to-video", "image-to-video"],
+    coverImage: undefined,
+    pricing: { type: "per-second", amount: 0.05, currency: "USD" },
+    pageUrl: "https://docs.x.ai/developers/model-capabilities/video/generation",
+  },
+  {
+    id: "grok-imagine-image-pro",
+    name: "Grok Image Pro",
+    description: "xAI Grok Pro image generation and editing. Higher quality output with text-to-image and image-to-image support.",
+    provider: "xai",
+    capabilities: ["text-to-image", "image-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.07, currency: "USD" },
+    pageUrl: "https://docs.x.ai/developers/model-capabilities/images/generation",
+  },
+  {
+    id: "grok-imagine-image",
+    name: "Grok Image",
+    description: "xAI Grok image generation and editing. Fast and affordable text-to-image and image-to-image.",
+    provider: "xai",
+    capabilities: ["text-to-image", "image-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.02, currency: "USD" },
+    pageUrl: "https://docs.x.ai/developers/model-capabilities/images/generation",
+  },
+];
+
 // Gemini image models (hardcoded - these don't come from an external API)
 const GEMINI_IMAGE_MODELS: ProviderModel[] = [
   {
@@ -793,6 +827,54 @@ async function fetchFalModels(
   return allModels;
 }
 
+// ============ ComfyUI Helpers ============
+
+async function fetchComfyUIModels(serverUrl: string): Promise<ProviderModel[]> {
+  const baseUrl = serverUrl.replace(/\/+$/, "");
+
+  try {
+    const response = await fetch(`${baseUrl}/object_info`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      throw new Error(`ComfyUI API error: ${response.status}`);
+    }
+
+    const objectInfo = await response.json();
+
+    // Find CheckpointLoaderSimple to get available checkpoints
+    const checkpointLoader = objectInfo.CheckpointLoaderSimple;
+    if (!checkpointLoader?.input?.required?.ckpt_name) {
+      return [];
+    }
+
+    const checkpointNames: string[] = checkpointLoader.input.required.ckpt_name[0] || [];
+
+    return checkpointNames.map((ckptName: string) => {
+      // Clean up display name: remove path and extension
+      const displayName = ckptName
+        .replace(/\\/g, "/")
+        .split("/")
+        .pop()!
+        .replace(/\.(safetensors|ckpt|pt|bin)$/i, "");
+
+      return {
+        id: ckptName,
+        name: displayName,
+        description: `Local checkpoint: ${ckptName}`,
+        provider: "comfyui" as ProviderType,
+        capabilities: ["text-to-image", "image-to-image"] as ModelCapability[],
+        coverImage: undefined,
+      };
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error(`[ComfyUI Models] Failed to fetch: ${msg}`);
+    throw new Error(`ComfyUI: ${msg}`);
+  }
+}
+
 // ============ Main Handler ============
 
 export async function GET(
@@ -814,11 +896,15 @@ export async function GET(
   const falKey = request.headers.get("X-Fal-Key") || process.env.FAL_API_KEY || null;
   const kieKey = request.headers.get("X-Kie-Key") || process.env.KIE_API_KEY || null;
   const wavespeedKey = request.headers.get("X-WaveSpeed-Key") || process.env.WAVESPEED_API_KEY || null;
+  const xaiKey = request.headers.get("X-XAI-Key") || process.env.XAI_API_KEY || null;
+  const comfyuiServer = request.headers.get("X-ComfyUI-Server") || null;
 
   // Determine which providers to fetch from (excluding gemini/kie - handled separately as hardcoded)
   const providersToFetch: ProviderType[] = [];
   let includeGemini = false;
   let includeKie = false;
+  let includeXai = false;
+  let includeComfyUI = false;
 
   if (providerFilter) {
     if (providerFilter === "gemini") {
@@ -827,6 +913,22 @@ export async function GET(
     } else if (providerFilter === "kie") {
       // Only Kie requested - no external API calls needed (hardcoded models)
       includeKie = true;
+    } else if (providerFilter === "xai") {
+      // Only xAI requested - no external API calls needed (hardcoded models)
+      includeXai = true;
+    } else if (providerFilter === "comfyui") {
+      if (comfyuiServer) {
+        includeComfyUI = true;
+        providersToFetch.push("comfyui");
+      } else {
+        return NextResponse.json<ModelsErrorResponse>(
+          {
+            success: false,
+            error: "ComfyUI server URL required. Configure in Settings.",
+          },
+          { status: 400 }
+        );
+      }
     } else if (providerFilter === "wavespeed") {
       if (wavespeedKey) {
         // WaveSpeed requested with key - fetch from API
@@ -851,6 +953,11 @@ export async function GET(
     // Include all providers that have keys configured
     includeGemini = true; // Gemini always available
     includeKie = kieKey ? true : false; // Kie only if API key is configured
+    includeXai = xaiKey ? true : false; // xAI only if API key is configured
+    if (comfyuiServer) {
+      includeComfyUI = true;
+      providersToFetch.push("comfyui");
+    }
     if (wavespeedKey) {
       providersToFetch.push("wavespeed"); // WaveSpeed if key is configured
     }
@@ -863,7 +970,7 @@ export async function GET(
   }
 
   // Gemini and Kie are always available (with key for Kie), so we don't fail if no external providers
-  if (providersToFetch.length === 0 && !includeGemini && !includeKie) {
+  if (providersToFetch.length === 0 && !includeGemini && !includeKie && !includeXai && !includeComfyUI) {
     return NextResponse.json<ModelsErrorResponse>(
       {
         success: false,
@@ -892,6 +999,21 @@ export async function GET(
       success: true,
       count: geminiModels.length,
       cached: true, // Hardcoded models are effectively "cached"
+    };
+    anyFromCache = true;
+  }
+
+  // Add xAI models if included (hardcoded, no API call needed)
+  if (includeXai) {
+    let xaiModels = XAI_MODELS;
+    if (searchQuery) {
+      xaiModels = filterModelsBySearch(xaiModels, searchQuery);
+    }
+    allModels.push(...xaiModels);
+    providerResults["xai"] = {
+      success: true,
+      count: xaiModels.length,
+      cached: true,
     };
     anyFromCache = true;
   }
@@ -964,6 +1086,12 @@ export async function GET(
           models = searchQuery
             ? filterModelsBySearch(allWaveSpeedModels, searchQuery)
             : allWaveSpeedModels;
+        } else if (provider === "comfyui") {
+          const allComfyUIModels = await fetchComfyUIModels(comfyuiServer!);
+          setCachedModels(cacheKey, allComfyUIModels);
+          models = searchQuery
+            ? filterModelsBySearch(allComfyUIModels, searchQuery)
+            : allComfyUIModels;
         } else {
           models = [];
         }

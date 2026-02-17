@@ -48,6 +48,12 @@ const FalIcon = () => (
   </svg>
 );
 
+const XaiIcon = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M13.982 10.622L20.54 3h-1.554l-5.693 6.618L8.745 3H3.5l6.876 10.007L3.5 21h1.554l6.012-6.989L15.868 21h5.245l-7.131-10.378zm-2.128 2.474l-.697-.997L5.653 4.16h2.386l4.474 6.4.697.996 5.815 8.318h-2.387l-4.745-6.787z" />
+  </svg>
+);
+
 const WaveSpeedIcon = () => (
   <svg className="w-4 h-4" viewBox="0 0 512 512" fill="currentColor">
     <path d="M308.946 153.758C314.185 153.758 318.268 158.321 317.516 163.506C306.856 237.02 270.334 302.155 217.471 349.386C211.398 354.812 203.458 357.586 195.315 357.586H127.562C117.863 357.586 110.001 349.724 110.001 340.025V333.552C110.001 326.82 113.882 320.731 119.792 317.505C176.087 286.779 217.883 232.832 232.32 168.537C234.216 160.09 241.509 153.758 250.167 153.758H308.946Z" />
@@ -67,6 +73,16 @@ const getProviderIcon = (provider: ProviderType) => {
       return <FalIcon />;
     case "wavespeed":
       return <WaveSpeedIcon />;
+    case "xai":
+      return <XaiIcon />;
+    case "comfyui":
+      return (
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -112,6 +128,7 @@ export function ProjectSetupModal({
 
   // Provider tab state
   const [localProviders, setLocalProviders] = useState<ProviderSettings>(providerSettings);
+  const [comfyuiTestStatus, setComfyuiTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [showApiKey, setShowApiKey] = useState<Record<ProviderType, boolean>>({
     gemini: false,
     openai: false,
@@ -119,6 +136,8 @@ export function ProjectSetupModal({
     fal: false,
     kie: false,
     wavespeed: false,
+    xai: false,
+    comfyui: false,
   });
   const [overrideActive, setOverrideActive] = useState<Record<ProviderType, boolean>>({
     gemini: false,
@@ -127,6 +146,8 @@ export function ProjectSetupModal({
     fal: false,
     kie: false,
     wavespeed: false,
+    xai: false,
+    comfyui: false,
   });
   const [envStatus, setEnvStatus] = useState<EnvStatusResponse | null>(null);
 
@@ -158,7 +179,8 @@ export function ProjectSetupModal({
 
       // Sync local providers state
       setLocalProviders(providerSettings);
-      setShowApiKey({ gemini: false, openai: false, replicate: false, fal: false, kie: false, wavespeed: false });
+      setShowApiKey({ gemini: false, openai: false, replicate: false, fal: false, kie: false, wavespeed: false, xai: false, comfyui: false });
+      setComfyuiTestStatus("idle");
       // Initialize override as active if user already has a key set
       setOverrideActive({
         gemini: !!providerSettings.providers.gemini?.apiKey,
@@ -167,6 +189,8 @@ export function ProjectSetupModal({
         fal: !!providerSettings.providers.fal?.apiKey,
         kie: !!providerSettings.providers.kie?.apiKey,
         wavespeed: !!providerSettings.providers.wavespeed?.apiKey,
+        xai: !!providerSettings.providers.xai?.apiKey,
+        comfyui: false,
       });
       setError(null);
 
@@ -269,7 +293,7 @@ export function ProjectSetupModal({
 
   const handleSaveProviders = () => {
     // Save each provider's settings
-    const providerIds: ProviderType[] = ["gemini", "openai", "replicate", "fal", "kie", "wavespeed"];
+    const providerIds: ProviderType[] = ["gemini", "openai", "replicate", "fal", "kie", "wavespeed", "xai", "comfyui"];
     for (const providerId of providerIds) {
       const local = localProviders.providers[providerId];
       const current = providerSettings.providers[providerId];
@@ -739,6 +763,123 @@ export function ProjectSetupModal({
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* xAI Provider */}
+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-neutral-100">xAI</span>
+                {envStatus?.xai && !overrideActive.xai ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-green-400">Configured via .env</span>
+                    <button
+                      type="button"
+                      onClick={() => setOverrideActive((prev) => ({ ...prev, xai: true }))}
+                      className="px-2 py-1 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
+                    >
+                      Override
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showApiKey.xai ? "text" : "password"}
+                      value={localProviders.providers.xai?.apiKey || ""}
+                      onChange={(e) => updateLocalProvider("xai", { apiKey: e.target.value || null })}
+                      placeholder="..."
+                      className="w-48 px-2 py-1 bg-neutral-800 border border-neutral-600 rounded text-neutral-100 text-xs focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey((prev) => ({ ...prev, xai: !prev.xai }))}
+                      className="text-xs text-neutral-400 hover:text-neutral-200"
+                    >
+                      {showApiKey.xai ? "Hide" : "Show"}
+                    </button>
+                    {envStatus?.xai && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOverrideActive((prev) => ({ ...prev, xai: false }));
+                          updateLocalProvider("xai", { apiKey: null });
+                        }}
+                        className="text-xs text-neutral-500 hover:text-neutral-300"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ComfyUI (Local) Provider */}
+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                    <line x1="8" y1="21" x2="16" y2="21" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                  <span className="text-sm font-medium text-neutral-100">ComfyUI (Local)</span>
+                  <label className="relative inline-flex items-center cursor-pointer ml-2">
+                    <input
+                      type="checkbox"
+                      checked={localProviders.providers.comfyui?.enabled ?? false}
+                      onChange={(e) => updateLocalProvider("comfyui", { enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-8 h-4 bg-neutral-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500" />
+                  </label>
+                </div>
+              </div>
+              {(localProviders.providers.comfyui?.enabled ?? false) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={localProviders.providers.comfyui?.apiKey || ""}
+                      onChange={(e) => {
+                        updateLocalProvider("comfyui", { apiKey: e.target.value || null });
+                        setComfyuiTestStatus("idle");
+                      }}
+                      placeholder="http://192.168.1.50:8188"
+                      className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-600 rounded text-neutral-100 text-xs focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const url = localProviders.providers.comfyui?.apiKey;
+                        if (!url) return;
+                        setComfyuiTestStatus("testing");
+                        try {
+                          const baseUrl = url.replace(/\/+$/, "");
+                          const res = await fetch(`${baseUrl}/system_stats`, {
+                            signal: AbortSignal.timeout(5000),
+                          });
+                          setComfyuiTestStatus(res.ok ? "success" : "error");
+                        } catch {
+                          setComfyuiTestStatus("error");
+                        }
+                      }}
+                      disabled={!localProviders.providers.comfyui?.apiKey || comfyuiTestStatus === "testing"}
+                      className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 text-neutral-200 rounded transition-colors whitespace-nowrap"
+                    >
+                      {comfyuiTestStatus === "testing" ? "Testing..." : comfyuiTestStatus === "success" ? "Connected" : comfyuiTestStatus === "error" ? "Failed" : "Test"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    Server URL of your ComfyUI instance. Run ComfyUI with <code className="px-1 py-0.5 bg-neutral-800 rounded">--listen 0.0.0.0</code> for LAN access.
+                  </p>
+                  {comfyuiTestStatus === "success" && (
+                    <p className="text-xs text-green-400">Server is reachable</p>
+                  )}
+                  {comfyuiTestStatus === "error" && (
+                    <p className="text-xs text-red-400">Cannot connect to server. Check the URL and that ComfyUI is running.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <p className="text-xs text-neutral-500 mt-2">

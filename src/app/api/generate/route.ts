@@ -18,6 +18,8 @@ import { generateWithReplicate } from "./providers/replicate";
 import { clearFalInputMappingCache as _clearFalInputMappingCache, generateWithFalQueue } from "./providers/fal";
 import { generateWithKie } from "./providers/kie";
 import { generateWithWaveSpeed } from "./providers/wavespeed";
+import { generateXaiImage, generateWithXai } from "./providers/xai";
+import { generateWithComfyUI } from "./providers/comfyui";
 
 // Re-export for backward compatibility (test file imports from route)
 export const clearFalInputMappingCache = _clearFalInputMappingCache;
@@ -462,6 +464,144 @@ export async function POST(request: NextRequest) {
 
       if (output.type === "video") {
         // Large videos have data="" with url set; normal videos have base64 data
+        const isLargeVideo = !output.data && output.url;
+        return NextResponse.json<GenerateResponse>({
+          success: true,
+          video: isLargeVideo ? undefined : output.data,
+          videoUrl: isLargeVideo ? output.url : undefined,
+          contentType: "video",
+        });
+      }
+
+      return NextResponse.json<GenerateResponse>({
+        success: true,
+        image: output.data,
+        contentType: "image",
+      });
+    }
+
+    if (provider === "comfyui") {
+      const comfyuiServerUrl = request.headers.get("X-ComfyUI-Server");
+      if (!comfyuiServerUrl) {
+        return NextResponse.json<GenerateResponse>(
+          {
+            success: false,
+            error: "ComfyUI server URL not configured. Configure in Settings.",
+          },
+          { status: 401 }
+        );
+      }
+
+      const processedImages: string[] = images ? [...images] : [];
+
+      let processedDynamicInputs: Record<string, string | string[]> | undefined = undefined;
+      if (dynamicInputs) {
+        processedDynamicInputs = {};
+        for (const key of Object.keys(dynamicInputs)) {
+          const value = dynamicInputs[key];
+          if (value === null || value === undefined || value === '') continue;
+          processedDynamicInputs[key] = value;
+        }
+      }
+
+      const genInput: GenerationInput = {
+        model: {
+          id: selectedModel!.modelId,
+          name: selectedModel!.displayName,
+          provider: "comfyui",
+          capabilities: ["text-to-image"],
+          description: null,
+        },
+        prompt: prompt || "",
+        images: processedImages,
+        parameters,
+        dynamicInputs: processedDynamicInputs,
+      };
+
+      const result = await generateWithComfyUI(requestId, comfyuiServerUrl, genInput);
+
+      if (!result.success) {
+        return NextResponse.json<GenerateResponse>(
+          { success: false, error: result.error || "Generation failed" },
+          { status: 500 }
+        );
+      }
+
+      const output = result.outputs?.[0];
+      if (!output?.data) {
+        return NextResponse.json<GenerateResponse>(
+          { success: false, error: "No output in generation result" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json<GenerateResponse>({
+        success: true,
+        image: output.data,
+        contentType: "image",
+      });
+    }
+
+    if (provider === "xai") {
+      const xaiApiKey = request.headers.get("X-XAI-Key") || process.env.XAI_API_KEY;
+      if (!xaiApiKey) {
+        return NextResponse.json<GenerateResponse>(
+          {
+            success: false,
+            error: "xAI API key not configured. Add XAI_API_KEY to .env.local or configure in Settings.",
+          },
+          { status: 401 }
+        );
+      }
+
+      const processedImages: string[] = images ? [...images] : [];
+
+      let processedDynamicInputs: Record<string, string | string[]> | undefined = undefined;
+      if (dynamicInputs) {
+        processedDynamicInputs = {};
+        for (const key of Object.keys(dynamicInputs)) {
+          const value = dynamicInputs[key];
+          if (value === null || value === undefined || value === '') continue;
+          processedDynamicInputs[key] = value;
+        }
+      }
+
+      const genInput: GenerationInput = {
+        model: {
+          id: selectedModel!.modelId,
+          name: selectedModel!.displayName,
+          provider: "xai",
+          capabilities: mediaType === "video" ? ["text-to-video"] : ["text-to-image"],
+          description: null,
+        },
+        prompt: prompt || "",
+        images: processedImages,
+        parameters,
+        dynamicInputs: processedDynamicInputs,
+      };
+
+      // Route to image or video based on model ID
+      const isXaiImage = selectedModel!.modelId.startsWith("grok-imagine-image");
+      const result = isXaiImage
+        ? await generateXaiImage(requestId, xaiApiKey, genInput)
+        : await generateWithXai(requestId, xaiApiKey, genInput);
+
+      if (!result.success) {
+        return NextResponse.json<GenerateResponse>(
+          { success: false, error: result.error || "Generation failed" },
+          { status: 500 }
+        );
+      }
+
+      const output = result.outputs?.[0];
+      if (!output?.data && !output?.url) {
+        return NextResponse.json<GenerateResponse>(
+          { success: false, error: "No output in generation result" },
+          { status: 500 }
+        );
+      }
+
+      if (output.type === "video") {
         const isLargeVideo = !output.data && output.url;
         return NextResponse.json<GenerateResponse>({
           success: true,

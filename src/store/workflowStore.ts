@@ -1955,9 +1955,13 @@ export function useProviderApiKeys() {
       falApiKey: state.providerSettings.providers.fal?.apiKey ?? null,
       kieApiKey: state.providerSettings.providers.kie?.apiKey ?? null,
       wavespeedApiKey: state.providerSettings.providers.wavespeed?.apiKey ?? null,
+      xaiApiKey: state.providerSettings.providers.xai?.apiKey ?? null,
+      comfyuiServerUrl: state.providerSettings.providers.comfyui?.apiKey ?? null,
       // Provider enabled states (for conditional UI)
       replicateEnabled: state.providerSettings.providers.replicate?.enabled ?? false,
       kieEnabled: state.providerSettings.providers.kie?.enabled ?? false,
+      xaiEnabled: state.providerSettings.providers.xai?.enabled ?? false,
+      comfyuiEnabled: state.providerSettings.providers.comfyui?.enabled ?? false,
     }))
   );
 }

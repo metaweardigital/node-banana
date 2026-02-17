@@ -490,6 +490,47 @@ function extractParametersFromSchema(
 }
 
 /**
+ * Get hardcoded schema for xAI models
+ */
+function getXaiSchema(modelId: string): ExtractedSchema {
+  const schemas: Record<string, ExtractedSchema> = {
+    "grok-imagine-video": {
+      parameters: [
+        { name: "duration", type: "integer", description: "Video duration in seconds", minimum: 1, maximum: 15, default: 5 },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["16:9", "9:16", "1:1", "4:3", "3:4", "3:2", "2:3"], default: "16:9" },
+        { name: "resolution", type: "string", description: "Output resolution", enum: ["480p", "720p"], default: "480p" },
+      ],
+      inputs: [
+        { name: "prompt", type: "text", required: true, label: "Prompt" },
+        { name: "image", type: "image", required: false, label: "Image (for image-to-video)" },
+      ],
+    },
+    "grok-imagine-image-pro": {
+      parameters: [
+        { name: "n", type: "integer", description: "Number of images to generate", minimum: 1, maximum: 10, default: 1 },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"], default: "auto" },
+      ],
+      inputs: [
+        { name: "prompt", type: "text", required: true, label: "Prompt" },
+        { name: "image", type: "image", required: false, label: "Image (for editing)" },
+      ],
+    },
+    "grok-imagine-image": {
+      parameters: [
+        { name: "n", type: "integer", description: "Number of images to generate", minimum: 1, maximum: 10, default: 1 },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"], default: "auto" },
+      ],
+      inputs: [
+        { name: "prompt", type: "text", required: true, label: "Prompt" },
+        { name: "image", type: "image", required: false, label: "Image (for editing)" },
+      ],
+    },
+  };
+
+  return schemas[modelId] || { parameters: [], inputs: [] };
+}
+
+/**
  * Get hardcoded schema for Kie.ai models
  * Kie.ai doesn't have a schema discovery API, so we define these manually
  */
@@ -767,6 +808,29 @@ function getKieSchema(modelId: string): ExtractedSchema {
 }
 
 /**
+ * Get schema for ComfyUI models (standard KSampler parameters)
+ */
+function getComfyUISchema(): ExtractedSchema {
+  return {
+    parameters: [
+      { name: "steps", type: "integer", description: "Number of sampling steps", default: 20, minimum: 1, maximum: 150 },
+      { name: "cfg", type: "number", description: "Classifier-free guidance scale", default: 7, minimum: 1, maximum: 30 },
+      { name: "width", type: "integer", description: "Output width in pixels", default: 512, minimum: 64, maximum: 2048 },
+      { name: "height", type: "integer", description: "Output height in pixels", default: 512, minimum: 64, maximum: 2048 },
+      { name: "seed", type: "integer", description: "Random seed (-1 for random)", default: -1 },
+      { name: "sampler_name", type: "string", description: "Sampler algorithm", default: "euler", enum: ["euler", "euler_ancestral", "heun", "heunpp2", "dpm_2", "dpm_2_ancestral", "lms", "dpm_fast", "dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_sde", "dpmpp_sde_gpu", "dpmpp_2m", "dpmpp_2m_sde", "dpmpp_2m_sde_gpu", "dpmpp_3m_sde", "dpmpp_3m_sde_gpu", "ddpm", "lcm", "ddim", "uni_pc", "uni_pc_bh2"] },
+      { name: "scheduler", type: "string", description: "Noise scheduler", default: "normal", enum: ["normal", "karras", "exponential", "sgm_uniform", "simple", "ddim_uniform", "beta"] },
+      { name: "denoise", type: "number", description: "Denoise strength (lower = closer to input image)", default: 1.0, minimum: 0, maximum: 1 },
+    ],
+    inputs: [
+      { name: "prompt", type: "text", required: true, label: "Prompt" },
+      { name: "negative_prompt", type: "text", required: false, label: "Negative Prompt" },
+      { name: "image", type: "image", required: false, label: "Image (for img2img)" },
+    ],
+  };
+}
+
+/**
  * Get static schema for WaveSpeed models (fallback when dynamic schema not available)
  */
 function getStaticWaveSpeedSchema(modelId: string): ExtractedSchema {
@@ -1000,11 +1064,11 @@ export async function GET(
   const decodedModelId = decodeURIComponent(modelId);
   const provider = request.nextUrl.searchParams.get("provider") as ProviderType | null;
 
-  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "kie" && provider !== "wavespeed")) {
+  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "kie" && provider !== "wavespeed" && provider !== "xai" && provider !== "comfyui")) {
     return NextResponse.json<SchemaErrorResponse>(
       {
         success: false,
-        error: "Invalid or missing provider. Use ?provider=replicate, ?provider=fal, ?provider=kie, or ?provider=wavespeed",
+        error: "Invalid or missing provider. Use ?provider=replicate, ?provider=fal, ?provider=kie, ?provider=wavespeed, ?provider=xai, or ?provider=comfyui",
       },
       { status: 400 }
     );
@@ -1038,6 +1102,11 @@ export async function GET(
         );
       }
       result = await fetchReplicateSchema(decodedModelId, apiKey);
+    } else if (provider === "comfyui") {
+      result = getComfyUISchema();
+    } else if (provider === "xai") {
+      // xAI uses hardcoded schemas
+      result = getXaiSchema(decodedModelId);
     } else if (provider === "kie") {
       // Kie.ai uses hardcoded schemas (no schema discovery API)
       result = getKieSchema(decodedModelId);
