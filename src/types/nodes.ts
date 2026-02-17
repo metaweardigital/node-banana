@@ -38,7 +38,8 @@ export type NodeType =
   | "videoStitch"
   | "easeCurve"
   | "generate3d"
-  | "glbViewer";
+  | "glbViewer"
+  | "promptEvasion";
 
 /**
  * Node execution status
@@ -308,6 +309,17 @@ export interface GLBViewerNodeData extends BaseNodeData {
 }
 
 /**
+ * Prompt Evasion node - transforms text using unicode evasion techniques for testing moderation
+ */
+export interface PromptEvasionNodeData extends BaseNodeData {
+  inputText: string;
+  outputText: string | null;
+  technique: string;
+  status: NodeStatus;
+  error: string | null;
+}
+
+/**
  * Union of all node data types
  */
 export type WorkflowNodeData =
@@ -326,7 +338,8 @@ export type WorkflowNodeData =
   | ImageCompareNodeData
   | VideoStitchNodeData
   | EaseCurveNodeData
-  | GLBViewerNodeData;
+  | GLBViewerNodeData
+  | PromptEvasionNodeData;
 
 /**
  * Workflow node with typed data (extended with optional groupId)

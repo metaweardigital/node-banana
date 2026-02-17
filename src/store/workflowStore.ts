@@ -73,6 +73,7 @@ import {
   executeVideoStitch,
   executeEaseCurve,
   executeGlbViewer,
+  executePromptEvasion,
 } from "./execution";
 import type { NodeExecutionContext } from "./execution";
 export type { LevelGroup } from "./utils/executionUtils";
@@ -925,6 +926,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           case "easeCurve":
             await executeEaseCurve(executionCtx);
             break;
+          case "promptEvasion":
+            await executePromptEvasion(executionCtx);
+            break;
         }
     }; // End of executeSingleNode helper
 
@@ -1212,6 +1216,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           break;
         case "easeCurve":
           await executeEaseCurve(executionCtx);
+          break;
+        case "promptEvasion":
+          await executePromptEvasion(executionCtx);
           break;
       }
     };

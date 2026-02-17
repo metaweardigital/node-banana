@@ -11,10 +11,12 @@ import type {
   AnnotationNodeData,
   PromptConstructorNodeData,
   PromptNodeData,
+  PromptEvasionNodeData,
   OutputNodeData,
   OutputGalleryNodeData,
   WorkflowNode,
 } from "@/types";
+import { applyEvasion, type EvasionTechnique } from "@/utils/promptEvasion";
 import type { NodeExecutionContext } from "./types";
 
 /**
@@ -252,5 +254,33 @@ export async function executeGlbViewer(ctx: NodeExecutionContext): Promise<void>
       console.error(`[Workflow] GLB Viewer node ${node.id} failed:`, message);
       updateNodeData(node.id, { error: message });
     }
+  }
+}
+
+/**
+ * PromptEvasion node: applies unicode evasion techniques to input text.
+ * Pure client-side transform, no API call needed.
+ */
+export async function executePromptEvasion(ctx: NodeExecutionContext): Promise<void> {
+  const { node, getConnectedInputs, updateNodeData } = ctx;
+  try {
+    const nodeData = node.data as PromptEvasionNodeData;
+    // Accept text from connected node or use the node's own inputText
+    const { text: connectedText } = getConnectedInputs(node.id);
+    const inputText = connectedText ?? nodeData.inputText;
+
+    if (!inputText) {
+      updateNodeData(node.id, { outputText: null, status: "idle" });
+      return;
+    }
+
+    updateNodeData(node.id, { status: "loading", inputText });
+    const technique = nodeData.technique as EvasionTechnique;
+    const outputText = applyEvasion(inputText, technique);
+    updateNodeData(node.id, { outputText, status: "complete" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Workflow] PromptEvasion node ${node.id} failed:`, message);
+    updateNodeData(node.id, { status: "error", error: message });
   }
 }

@@ -13,4 +13,5 @@ export { OutputGalleryNode } from "./OutputGalleryNode";
 export { ImageCompareNode } from "./ImageCompareNode";
 export { VideoStitchNode } from "./VideoStitchNode";
 export { EaseCurveNode } from "./EaseCurveNode";
+export { PromptEvasionNode } from "./PromptEvasionNode";
 export { GroupNode } from "./GroupNode";

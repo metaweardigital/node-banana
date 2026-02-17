@@ -20,6 +20,7 @@ import {
   PromptConstructorNodeData,
   LLMGenerateNodeData,
   GLBViewerNodeData,
+  PromptEvasionNodeData,
 } from "@/types";
 
 /**
@@ -80,6 +81,8 @@ function getSourceOutput(sourceNode: WorkflowNode): { type: "image" | "text" | "
     return { type: "text", value: pcData.outputText ?? pcData.template ?? null };
   } else if (sourceNode.type === "llmGenerate") {
     return { type: "text", value: (sourceNode.data as LLMGenerateNodeData).outputText };
+  } else if (sourceNode.type === "promptEvasion") {
+    return { type: "text", value: (sourceNode.data as PromptEvasionNodeData).outputText };
   } else if (sourceNode.type === "glbViewer") {
     return { type: "image", value: (sourceNode.data as GLBViewerNodeData).capturedImage };
   }

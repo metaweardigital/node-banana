@@ -15,6 +15,7 @@ import {
   ImageCompareNodeData,
   EaseCurveNodeData,
   GLBViewerNodeData,
+  PromptEvasionNodeData,
   WorkflowNodeData,
   GroupColor,
   SelectedModel,
@@ -42,6 +43,7 @@ export const defaultNodeDimensions: Record<NodeType, { width: number; height: nu
   videoStitch: { width: 400, height: 280 },
   easeCurve: { width: 340, height: 480 },
   glbViewer: { width: 360, height: 380 },
+  promptEvasion: { width: 320, height: 340 },
 };
 
 /**
@@ -234,5 +236,13 @@ export const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         filename: null,
         capturedImage: null,
       } as GLBViewerNodeData;
+    case "promptEvasion":
+      return {
+        inputText: "",
+        outputText: null,
+        technique: "leetspeak",
+        status: "idle",
+        error: null,
+      } as PromptEvasionNodeData;
   }
 };

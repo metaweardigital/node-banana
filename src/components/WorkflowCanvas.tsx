@@ -36,6 +36,7 @@ import {
   ImageCompareNode,
   VideoStitchNode,
   EaseCurveNode,
+  PromptEvasionNode,
 } from "./nodes";
 
 // Lazy-load GLBViewerNode to avoid bundling three.js for users who don't use 3D nodes
@@ -73,6 +74,7 @@ const nodeTypes: NodeTypes = {
   videoStitch: VideoStitchNode,
   easeCurve: EaseCurveNode,
   glbViewer: GLBViewerNode,
+  promptEvasion: PromptEvasionNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -138,6 +140,8 @@ const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: string[]
       return { inputs: ["video", "easeCurve"], outputs: ["video", "easeCurve"] };
     case "glbViewer":
       return { inputs: ["3d"], outputs: ["image"] };
+    case "promptEvasion":
+      return { inputs: ["text"], outputs: ["text"] };
     default:
       return { inputs: [], outputs: [] };
   }
@@ -1688,6 +1692,8 @@ export function WorkflowCanvas() {
                 return "#bef264"; // lime-300 (easy-peasy-ease)
               case "glbViewer":
                 return "#38bdf8"; // sky-400 (3D viewport)
+              case "promptEvasion":
+                return "#f43f5e"; // rose-500 (evasion testing)
               default:
                 return "#94a3b8";
             }
