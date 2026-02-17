@@ -493,19 +493,6 @@ export function TemplateExplorerView({
                 </div>
               )}
 
-              {/* Discord CTA */}
-              <p className="text-xs text-neutral-500 mt-3">
-                Want to share your workflow?{" "}
-                <a
-                  href="https://discord.com/invite/89Nr6EKkTf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-purple-400 hover:text-purple-300 underline"
-                >
-                  Join our Discord
-                </a>{" "}
-                to submit it to the community templates.
-              </p>
             </div>
           )}
 

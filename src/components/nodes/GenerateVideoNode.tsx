@@ -58,7 +58,7 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
   const commentNavigation = useCommentNavigation(id);
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, replicateEnabled, kieEnabled } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, xaiApiKey, replicateEnabled, kieEnabled, xaiEnabled } = useProviderApiKeys();
   const generationsPath = useWorkflowStore((state) => state.generationsPath);
   const [externalModels, setExternalModels] = useState<ProviderModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -82,8 +82,12 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
     if (kieEnabled && kieApiKey) {
       providers.push({ id: "kie", name: "Kie.ai" });
     }
+    // Add xAI if configured
+    if (xaiEnabled && xaiApiKey) {
+      providers.push({ id: "xai", name: "xAI" });
+    }
     return providers;
-  }, [replicateEnabled, replicateApiKey, kieEnabled, kieApiKey]);
+  }, [replicateEnabled, replicateApiKey, kieEnabled, kieApiKey, xaiEnabled, xaiApiKey]);
 
   // Fetch models from external providers when provider changes
   const fetchModels = useCallback(async () => {
@@ -100,6 +104,9 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
       }
       if (kieApiKey) {
         headers["X-Kie-Key"] = kieApiKey;
+      }
+      if (xaiApiKey) {
+        headers["X-XAI-Key"] = xaiApiKey;
       }
       const response = await deduplicatedFetch(`/api/models?provider=${currentProvider}&capabilities=${capabilities}`, { headers });
       if (response.ok) {
@@ -625,9 +632,12 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
                 </svg>
               </div>
             )}
-            {/* Error overlay when generation failed */}
+            {/* Error overlay when generation failed — click to dismiss */}
             {nodeData.status === "error" && (
-              <div className="absolute inset-0 bg-red-900/40 rounded flex flex-col items-center justify-center gap-1">
+              <div
+                className="absolute inset-0 bg-red-900/40 rounded flex flex-col items-center justify-center gap-1 cursor-pointer"
+                onClick={() => updateNodeData(id, { status: "idle", error: null })}
+              >
                 <svg
                   className="w-6 h-6 text-white"
                   fill="none"
@@ -638,7 +648,7 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="text-white text-xs font-medium">Generation failed</span>
-                <span className="text-white/70 text-[10px]">See toast for details</span>
+                <span className="text-white/70 text-[10px]">Click to dismiss</span>
               </div>
             )}
             {/* Loading overlay for carousel navigation */}

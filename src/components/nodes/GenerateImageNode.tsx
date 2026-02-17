@@ -610,9 +610,12 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
                   </svg>
                 </div>
               )}
-              {/* Error overlay when generation failed */}
+              {/* Error overlay when generation failed — click to dismiss */}
               {nodeData.status === "error" && (
-                <div className="absolute inset-0 bg-red-900/40 rounded flex flex-col items-center justify-center gap-1">
+                <div
+                  className="absolute inset-0 bg-red-900/40 rounded flex flex-col items-center justify-center gap-1 cursor-pointer"
+                  onClick={() => updateNodeData(id, { status: "idle", error: null })}
+                >
                   <svg
                     className="w-6 h-6 text-white"
                     fill="none"
@@ -623,7 +626,7 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="text-white text-xs font-medium">Generation failed</span>
-                  <span className="text-white/70 text-[10px]">See toast for details</span>
+                  <span className="text-white/70 text-[10px]">Click to dismiss</span>
                 </div>
               )}
               {/* Loading overlay for carousel navigation */}

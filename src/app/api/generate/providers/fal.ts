@@ -452,10 +452,26 @@ export async function generateWithFalQueue(
       );
 
       if (!resultResponse.ok) {
-        console.error(`[API:${requestId}] Failed to fetch result: ${resultResponse.status}`);
+        const resultErrorText = await resultResponse.text();
+        let resultErrorDetail = `HTTP ${resultResponse.status}`;
+        try {
+          const resultErrorJson = JSON.parse(resultErrorText);
+          if (resultErrorJson.detail) {
+            resultErrorDetail = typeof resultErrorJson.detail === 'string'
+              ? resultErrorJson.detail
+              : JSON.stringify(resultErrorJson.detail);
+          } else if (resultErrorJson.error?.message) {
+            resultErrorDetail = resultErrorJson.error.message;
+          } else if (resultErrorJson.message) {
+            resultErrorDetail = resultErrorJson.message;
+          }
+        } catch {
+          if (resultErrorText) resultErrorDetail += ` - ${resultErrorText.substring(0, 300)}`;
+        }
+        console.error(`[API:${requestId}] Failed to fetch result: ${resultResponse.status} - ${resultErrorDetail}`);
         return {
           success: false,
-          error: `Failed to fetch result: ${resultResponse.status}`,
+          error: `${input.model.name}: ${resultErrorDetail}`,
         };
       }
 

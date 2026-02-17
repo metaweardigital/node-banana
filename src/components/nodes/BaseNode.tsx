@@ -58,6 +58,7 @@ export function BaseNode({
   commentNavigation,
 }: BaseNodeProps) {
   const currentNodeIds = useWorkflowStore((state) => state.currentNodeIds);
+  const stopWorkflow = useWorkflowStore((state) => state.stopWorkflow);
   const groups = useWorkflowStore((state) => state.groups);
   const nodes = useWorkflowStore((state) => state.nodes);
   const focusedCommentNodeId = useWorkflowStore((state) => state.focusedCommentNodeId);
@@ -435,22 +436,37 @@ export function BaseNode({
             </div>
           )}
 
-          {/* Run Button */}
+          {/* Run / Stop Button */}
           {onRun && (
             <div className="relative ml-2 shrink-0 group">
-              <button
-                onClick={onRun}
-                disabled={isExecuting}
-                className="nodrag nopan p-0.5 rounded transition-all duration-200 ease-in-out text-neutral-500 group-hover:text-neutral-200 border border-neutral-600 flex items-center overflow-hidden group-hover:pr-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Run this node"
-              >
-                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                <span className="max-w-0 opacity-0 whitespace-nowrap text-[10px] transition-all duration-200 ease-in-out overflow-hidden group-hover:max-w-[60px] group-hover:opacity-100 group-hover:ml-1">
-                  Run node
-                </span>
-              </button>
+              {isCurrentlyExecuting ? (
+                <button
+                  onClick={() => stopWorkflow()}
+                  className="nodrag nopan p-0.5 rounded transition-all duration-200 ease-in-out text-red-400 group-hover:text-red-300 border border-red-500/50 flex items-center overflow-hidden group-hover:pr-2"
+                  title="Stop execution"
+                >
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
+                  <span className="max-w-0 opacity-0 whitespace-nowrap text-[10px] transition-all duration-200 ease-in-out overflow-hidden group-hover:max-w-[60px] group-hover:opacity-100 group-hover:ml-1">
+                    Stop
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={onRun}
+                  disabled={isExecuting}
+                  className="nodrag nopan p-0.5 rounded transition-all duration-200 ease-in-out text-neutral-500 group-hover:text-neutral-200 border border-neutral-600 flex items-center overflow-hidden group-hover:pr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Run this node"
+                >
+                  <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  <span className="max-w-0 opacity-0 whitespace-nowrap text-[10px] transition-all duration-200 ease-in-out overflow-hidden group-hover:max-w-[60px] group-hover:opacity-100 group-hover:ml-1">
+                    Run node
+                  </span>
+                </button>
+              )}
             </div>
           )}
         </div>

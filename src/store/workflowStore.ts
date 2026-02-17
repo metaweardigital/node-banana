@@ -537,9 +537,20 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       (edge) => selectedNodeIds.has(edge.source) && selectedNodeIds.has(edge.target)
     );
 
-    // Deep clone the nodes and edges to avoid reference issues
-    const clonedNodes = JSON.parse(JSON.stringify(selectedNodes)) as WorkflowNode[];
-    const clonedEdges = JSON.parse(JSON.stringify(connectedEdges)) as WorkflowEdge[];
+    // Clone nodes for clipboard, stripping base64 image data to save memory
+    const clonedNodes = selectedNodes.map(node => {
+      const data = { ...node.data } as Record<string, unknown>;
+      for (const key of ['image', 'outputImage', 'sourceImage', 'outputVideo']) {
+        if (typeof data[key] === 'string' && (data[key] as string).startsWith('data:')) {
+          data[key] = null;
+        }
+      }
+      if (Array.isArray(data.inputImages)) {
+        data.inputImages = [];
+      }
+      return { ...node, data } as WorkflowNode;
+    });
+    const clonedEdges = structuredClone(connectedEdges);
 
     set({ clipboard: { nodes: clonedNodes, edges: clonedEdges } });
   },
@@ -1027,7 +1038,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       return;
     }
 
-    set({ isRunning: true, currentNodeIds: [nodeId] });
+    const abortController = new AbortController();
+    set({ isRunning: true, currentNodeIds: [nodeId], _abortController: abortController });
 
     await logger.startSession();
     logger.info('node.execution', 'Regenerating node', {
@@ -1036,7 +1048,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     });
 
     try {
-      const executionCtx = get()._buildExecutionContext(node);
+      const executionCtx = get()._buildExecutionContext(node, abortController.signal);
 
       const regenOptions = { useStoredFallback: true };
 
@@ -1052,12 +1064,12 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         await executeSplitGrid(executionCtx);
       } else if (node.type === "videoStitch") {
         await executeVideoStitch(executionCtx);
-        set({ isRunning: false, currentNodeIds: [] });
+        set({ isRunning: false, currentNodeIds: [], _abortController: null });
         await logger.endSession();
         return;
       } else if (node.type === "easeCurve") {
         await executeEaseCurve(executionCtx);
-        set({ isRunning: false, currentNodeIds: [] });
+        set({ isRunning: false, currentNodeIds: [], _abortController: null });
         await logger.endSession();
         return;
       }
@@ -1069,7 +1081,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       for (const edge of downstreamEdges) {
         const targetNode = get().nodes.find(n => n.id === edge.target);
         if (!targetNode) continue;
-        const targetCtx = get()._buildExecutionContext(targetNode);
+        const targetCtx = get()._buildExecutionContext(targetNode, abortController.signal);
         switch (targetNode.type) {
           case "glbViewer":
             await executeGlbViewer(targetCtx);
@@ -1087,7 +1099,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       }
 
       logger.info('node.execution', 'Node regeneration completed successfully', { nodeId });
-      set({ isRunning: false, currentNodeIds: [] });
+      set({ isRunning: false, currentNodeIds: [], _abortController: null });
 
       saveLogSession();
       await logger.endSession();
@@ -1099,7 +1111,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         status: "error",
         error: error instanceof Error ? error.message : "Regeneration failed",
       });
-      set({ isRunning: false, currentNodeIds: [] });
+      set({ isRunning: false, currentNodeIds: [], _abortController: null });
 
       saveLogSession();
       await logger.endSession();
@@ -1594,14 +1606,19 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         workflow = await externalizeWorkflowImages(workflow, saveDirectoryPath);
       }
 
+      // Keep externalized nodes before serializing (needed for ref merging after save)
+      const externalizedNodes = useExternalImageStorage ? workflow.nodes : null;
+
+      const requestBody = JSON.stringify({
+        directoryPath: saveDirectoryPath,
+        filename: workflowName,
+        workflow,
+      });
+
       const response = await fetch("/api/workflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          directoryPath: saveDirectoryPath,
-          filename: workflowName,
-          workflow,
-        }),
+        body: requestBody,
       });
 
       const result = await response.json();
@@ -1611,10 +1628,10 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
         // If we externalized images, update store nodes with the refs
         // This prevents duplicate images on subsequent saves
-        if (useExternalImageStorage && workflow.nodes !== currentNodes) {
+        if (externalizedNodes && externalizedNodes !== currentNodes) {
           // Merge refs from externalized nodes into current nodes (keeping image data)
           const nodesWithRefs = currentNodes.map((node, index) => {
-            const externalizedNode = workflow.nodes[index];
+            const externalizedNode = externalizedNodes[index];
             if (!externalizedNode || node.id !== externalizedNode.id) {
               return node; // Safety check - nodes should match
             }
@@ -1865,10 +1882,25 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   captureSnapshot: () => {
     const state = get();
     // Deep copy the current workflow state to avoid reference sharing
+    // Strip base64 image data from snapshot to avoid doubling memory usage
+    // (200MB workflow + 200MB snapshot = crash). Node structure/positions are preserved.
+    const strippedNodes = state.nodes.map(node => {
+      const data = { ...node.data } as Record<string, unknown>;
+      // Remove large base64 fields
+      for (const key of ['image', 'outputImage', 'sourceImage', 'outputVideo']) {
+        if (typeof data[key] === 'string' && (data[key] as string).startsWith('data:')) {
+          data[key] = null;
+        }
+      }
+      if (Array.isArray(data.inputImages)) {
+        data.inputImages = [];
+      }
+      return { ...node, data } as WorkflowNode;
+    });
     const snapshot = {
-      nodes: JSON.parse(JSON.stringify(state.nodes)),
-      edges: JSON.parse(JSON.stringify(state.edges)),
-      groups: JSON.parse(JSON.stringify(state.groups)),
+      nodes: strippedNodes,
+      edges: structuredClone(state.edges),
+      groups: structuredClone(state.groups),
       edgeStyle: state.edgeStyle,
     };
     set({

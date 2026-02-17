@@ -113,6 +113,8 @@ export function ProjectSetupModal({
     setMaxConcurrentCalls,
     canvasNavigationSettings,
     updateCanvasNavigationSettings,
+    autoSaveEnabled,
+    setAutoSaveEnabled,
   } = useWorkflowStore();
 
   // Tab state
@@ -459,6 +461,21 @@ export function ProjectSetupModal({
                   <span className="text-sm text-neutral-200">Embed images as base64</span>
                   <p className="text-xs text-neutral-500">
                     Embeds all images in workflow, larger workflow files. Can hit memory limits on very large workflows.
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 cursor-pointer mt-3">
+                <input
+                  type="checkbox"
+                  checked={autoSaveEnabled}
+                  onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                  className="w-4 h-4 rounded border-neutral-600 bg-neutral-900 text-blue-500 focus:ring-blue-500 focus:ring-offset-neutral-800"
+                />
+                <div>
+                  <span className="text-sm text-neutral-200">Auto-save</span>
+                  <p className="text-xs text-neutral-500">
+                    Automatically saves every 90 seconds. Disable for large workflows to reduce memory usage.
                   </p>
                 </div>
               </label>
