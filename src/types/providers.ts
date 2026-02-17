@@ -6,7 +6,7 @@
  */
 
 // Provider Types for multi-provider support (image/video generation)
-export type ProviderType = "gemini" | "openai" | "replicate" | "fal" | "kie" | "wavespeed" | "xai" | "comfyui";
+export type ProviderType = "gemini" | "openai" | "replicate" | "fal" | "kie" | "wavespeed" | "xai" | "comfyui" | "local";
 
 // Model pricing info (stored when model is selected)
 export interface SelectedModelPricing {
@@ -36,7 +36,7 @@ export interface ProviderSettings {
 }
 
 // LLM Provider Options
-export type LLMProvider = "google" | "openai";
+export type LLMProvider = "google" | "openai" | "local";
 
 // LLM Model Options
 export type LLMModelType =
@@ -44,7 +44,9 @@ export type LLMModelType =
   | "gemini-3-flash-preview"
   | "gemini-3-pro-preview"
   | "gpt-4.1-mini"
-  | "gpt-4.1-nano";
+  | "gpt-4.1-nano"
+  | "local-default"
+  | (string & {}); // Allow arbitrary model IDs for local/dynamic models
 
 // Recently used models tracking
 export interface RecentModel {

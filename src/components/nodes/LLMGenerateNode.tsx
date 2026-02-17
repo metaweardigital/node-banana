@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Handle, Position, NodeProps, Node } from "@xyflow/react";
 import { BaseNode } from "./BaseNode";
 import { useCommentNavigation } from "@/hooks/useCommentNavigation";
@@ -10,9 +10,12 @@ import { LLMGenerateNodeData, LLMProvider, LLMModelType } from "@/types";
 const PROVIDERS: { value: LLMProvider; label: string }[] = [
   { value: "google", label: "Google" },
   { value: "openai", label: "OpenAI" },
+  { value: "local", label: "Local" },
 ];
 
-const MODELS: Record<LLMProvider, { value: LLMModelType; label: string }[]> = {
+type ModelOption = { value: LLMModelType; label: string };
+
+const STATIC_MODELS: Record<string, ModelOption[]> = {
   google: [
     { value: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
     { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
@@ -22,6 +25,9 @@ const MODELS: Record<LLMProvider, { value: LLMModelType; label: string }[]> = {
     { value: "gpt-4.1-mini", label: "GPT-4.1 Mini" },
     { value: "gpt-4.1-nano", label: "GPT-4.1 Nano" },
   ],
+  local: [
+    { value: "local-default", label: "Default Model" },
+  ],
 };
 
 type LLMGenerateNodeType = Node<LLMGenerateNodeData, "llmGenerate">;
@@ -30,17 +36,59 @@ export function LLMGenerateNode({ id, data, selected }: NodeProps<LLMGenerateNod
   const nodeData = data;
   const commentNavigation = useCommentNavigation(id);
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+  const providerSettings = useWorkflowStore((state) => state.providerSettings);
+
+  // Fetch local models dynamically
+  const [localModels, setLocalModels] = useState<ModelOption[]>(STATIC_MODELS.local);
+
+  useEffect(() => {
+    if (nodeData.provider !== "local") return;
+
+    const localConfig = providerSettings.providers.local;
+    const endpoint = localConfig?.apiKey || "";
+
+    // Try fetching from configured URL or env fallback via a simple proxy
+    const fetchModels = async () => {
+      try {
+        // If user configured a URL in settings, fetch directly; otherwise use env var via API
+        const baseUrl = endpoint ? endpoint.replace(/\/+$/, "") : "";
+        const url = baseUrl ? `${baseUrl}/v1/models` : "/api/local-models";
+        const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        if (!res.ok) return;
+        const data = await res.json();
+        const models: ModelOption[] = (data.data || [])
+          .filter((m: { id: string }) => !m.id.includes("embedding"))
+          .map((m: { id: string }) => ({
+            value: m.id as LLMModelType,
+            label: m.id.split("/").pop() || m.id,
+          }));
+        if (models.length > 0) {
+          setLocalModels([{ value: "local-default", label: "Default Model" }, ...models]);
+        }
+      } catch {
+        // Keep default
+      }
+    };
+
+    fetchModels();
+  }, [nodeData.provider, providerSettings.providers.local?.apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getModels = useCallback((p: LLMProvider): ModelOption[] => {
+    if (p === "local") return localModels;
+    return STATIC_MODELS[p] || STATIC_MODELS.google;
+  }, [localModels]);
 
   const handleProviderChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newProvider = e.target.value as LLMProvider;
-      const firstModelForProvider = MODELS[newProvider][0].value;
+      const models = newProvider === "local" ? localModels : (STATIC_MODELS[newProvider] || STATIC_MODELS.google);
+      const firstModelForProvider = models[0].value;
       updateNodeData(id, {
         provider: newProvider,
         model: firstModelForProvider
       });
     },
-    [id, updateNodeData]
+    [id, updateNodeData, localModels]
   );
 
   const handleModelChange = useCallback(
@@ -92,7 +140,7 @@ export function LLMGenerateNode({ id, data, selected }: NodeProps<LLMGenerateNod
   }, [nodeData.outputText]);
 
   const provider = nodeData.provider || "google";
-  const availableModels = MODELS[provider] || MODELS.google;
+  const availableModels = getModels(provider);
   const model = availableModels.some(m => m.value === nodeData.model)
     ? nodeData.model
     : availableModels[0].value;

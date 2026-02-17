@@ -131,6 +131,7 @@ export function ProjectSetupModal({
   // Provider tab state
   const [localProviders, setLocalProviders] = useState<ProviderSettings>(providerSettings);
   const [comfyuiTestStatus, setComfyuiTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
+  const [localLlmTestStatus, setLocalLlmTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [showApiKey, setShowApiKey] = useState<Record<ProviderType, boolean>>({
     gemini: false,
     openai: false,
@@ -140,6 +141,7 @@ export function ProjectSetupModal({
     wavespeed: false,
     xai: false,
     comfyui: false,
+    local: false,
   });
   const [overrideActive, setOverrideActive] = useState<Record<ProviderType, boolean>>({
     gemini: false,
@@ -150,6 +152,7 @@ export function ProjectSetupModal({
     wavespeed: false,
     xai: false,
     comfyui: false,
+    local: false,
   });
   const [envStatus, setEnvStatus] = useState<EnvStatusResponse | null>(null);
 
@@ -181,8 +184,9 @@ export function ProjectSetupModal({
 
       // Sync local providers state
       setLocalProviders(providerSettings);
-      setShowApiKey({ gemini: false, openai: false, replicate: false, fal: false, kie: false, wavespeed: false, xai: false, comfyui: false });
+      setShowApiKey({ gemini: false, openai: false, replicate: false, fal: false, kie: false, wavespeed: false, xai: false, comfyui: false, local: false });
       setComfyuiTestStatus("idle");
+      setLocalLlmTestStatus("idle");
       // Initialize override as active if user already has a key set
       setOverrideActive({
         gemini: !!providerSettings.providers.gemini?.apiKey,
@@ -193,6 +197,7 @@ export function ProjectSetupModal({
         wavespeed: !!providerSettings.providers.wavespeed?.apiKey,
         xai: !!providerSettings.providers.xai?.apiKey,
         comfyui: false,
+        local: false,
       });
       setError(null);
 
@@ -295,7 +300,7 @@ export function ProjectSetupModal({
 
   const handleSaveProviders = () => {
     // Save each provider's settings
-    const providerIds: ProviderType[] = ["gemini", "openai", "replicate", "fal", "kie", "wavespeed", "xai", "comfyui"];
+    const providerIds: ProviderType[] = ["gemini", "openai", "replicate", "fal", "kie", "wavespeed", "xai", "comfyui", "local"];
     for (const providerId of providerIds) {
       const local = localProviders.providers[providerId];
       const current = providerSettings.providers[providerId];
@@ -894,6 +899,82 @@ export function ProjectSetupModal({
                   )}
                   {comfyuiTestStatus === "error" && (
                     <p className="text-xs text-red-400">Cannot connect to server. Check the URL and that ComfyUI is running.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Local LLM Provider */}
+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                    <rect x="9" y="9" width="6" height="6" />
+                    <line x1="9" y1="1" x2="9" y2="4" />
+                    <line x1="15" y1="1" x2="15" y2="4" />
+                    <line x1="9" y1="20" x2="9" y2="23" />
+                    <line x1="15" y1="20" x2="15" y2="23" />
+                    <line x1="20" y1="9" x2="23" y2="9" />
+                    <line x1="20" y1="14" x2="23" y2="14" />
+                    <line x1="1" y1="9" x2="4" y2="9" />
+                    <line x1="1" y1="14" x2="4" y2="14" />
+                  </svg>
+                  <span className="text-sm font-medium text-neutral-100">Local LLM</span>
+                  <label className="relative inline-flex items-center cursor-pointer ml-2">
+                    <input
+                      type="checkbox"
+                      checked={localProviders.providers.local?.enabled ?? false}
+                      onChange={(e) => updateLocalProvider("local", { enabled: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-8 h-4 bg-neutral-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-500" />
+                  </label>
+                </div>
+              </div>
+              {(localProviders.providers.local?.enabled ?? false) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={localProviders.providers.local?.apiKey || ""}
+                      onChange={(e) => {
+                        updateLocalProvider("local", { apiKey: e.target.value || null });
+                        setLocalLlmTestStatus("idle");
+                      }}
+                      placeholder="http://10.3.0.102:1234"
+                      className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-600 rounded text-neutral-100 text-xs focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const url = localProviders.providers.local?.apiKey;
+                        if (!url) return;
+                        setLocalLlmTestStatus("testing");
+                        try {
+                          const baseUrl = url.replace(/\/+$/, "");
+                          const res = await fetch(`${baseUrl}/v1/models`, {
+                            signal: AbortSignal.timeout(5000),
+                          });
+                          setLocalLlmTestStatus(res.ok ? "success" : "error");
+                        } catch {
+                          setLocalLlmTestStatus("error");
+                        }
+                      }}
+                      disabled={!localProviders.providers.local?.apiKey || localLlmTestStatus === "testing"}
+                      className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 text-neutral-200 rounded transition-colors whitespace-nowrap"
+                    >
+                      {localLlmTestStatus === "testing" ? "Testing..." : localLlmTestStatus === "success" ? "Connected" : localLlmTestStatus === "error" ? "Failed" : "Test"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-neutral-500">
+                    OpenAI-compatible endpoint (LM Studio, Ollama, etc). Used for LLM text generation.
+                  </p>
+                  {localLlmTestStatus === "success" && (
+                    <p className="text-xs text-green-400">Server is reachable</p>
+                  )}
+                  {localLlmTestStatus === "error" && (
+                    <p className="text-xs text-red-400">Cannot connect to server. Check the URL and that the server is running.</p>
                   )}
                 </div>
               )}

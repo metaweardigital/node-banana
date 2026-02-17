@@ -49,6 +49,7 @@ export const defaultProviderSettings: ProviderSettings = {
     wavespeed: { id: "wavespeed", name: "WaveSpeed", enabled: false, apiKey: null, apiKeyEnvVar: "WAVESPEED_API_KEY" },
     xai: { id: "xai", name: "xAI", enabled: false, apiKey: null, apiKeyEnvVar: "XAI_API_KEY" },
     comfyui: { id: "comfyui", name: "ComfyUI (Local)", enabled: false, apiKey: null },
+    local: { id: "local", name: "Local LLM", enabled: false, apiKey: null, apiKeyEnvVar: "LOCAL_LLM_URL" },
   }
 };
 

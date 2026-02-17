@@ -67,6 +67,12 @@ export function buildLlmHeaders(
     if (openaiConfig?.apiKey) {
       headers["X-OpenAI-API-Key"] = openaiConfig.apiKey;
     }
+  } else if (llmProvider === "local") {
+    // For local LLM, the "apiKey" field stores the endpoint URL
+    const localConfig = providerSettings.providers.local;
+    if (localConfig?.apiKey) {
+      headers["X-Local-LLM-URL"] = localConfig.apiKey;
+    }
   }
 
   return headers;

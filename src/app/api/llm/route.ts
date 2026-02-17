@@ -190,6 +190,88 @@ async function generateWithOpenAI(
   return text;
 }
 
+async function generateWithLocal(
+  prompt: string,
+  model: LLMModelType,
+  temperature: number,
+  maxTokens: number,
+  images?: string[],
+  requestId?: string,
+  endpointUrl?: string | null
+): Promise<string> {
+  const endpoint = endpointUrl || process.env.LOCAL_LLM_URL;
+  if (!endpoint) {
+    logger.error('api.error', 'Local LLM endpoint not configured', { requestId });
+    throw new Error("Local LLM endpoint not configured. Set LOCAL_LLM_URL in .env.local or configure in Settings.");
+  }
+
+  logger.info('api.llm', 'Calling Local LLM API', {
+    requestId,
+    endpoint,
+    model: model === "local-default" ? undefined : model,
+    temperature,
+    maxTokens,
+    imageCount: images?.length || 0,
+    promptLength: prompt.length,
+  });
+
+  // Build content array (OpenAI-compatible format)
+  let content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+  if (images && images.length > 0) {
+    content = [
+      { type: "text", text: prompt },
+      ...images.map((img) => ({
+        type: "image_url" as const,
+        image_url: { url: img },
+      })),
+    ];
+  } else {
+    content = prompt;
+  }
+
+  const startTime = Date.now();
+  const baseUrl = endpoint.replace(/\/+$/, "");
+  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...(model !== "local-default" ? { model } : {}),
+      messages: [{ role: "user", content }],
+      temperature,
+      max_tokens: maxTokens,
+    }),
+  });
+  const duration = Date.now() - startTime;
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    logger.error('api.error', 'Local LLM API request failed', {
+      requestId,
+      status: response.status,
+      error: error.error?.message,
+    });
+    throw new Error(error.error?.message || `Local LLM API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices?.[0]?.message?.content;
+
+  if (!text) {
+    logger.error('api.error', 'No text in Local LLM response', { requestId });
+    throw new Error("No text in Local LLM response");
+  }
+
+  logger.info('api.llm', 'Local LLM API response received', {
+    requestId,
+    duration,
+    responseLength: text.length,
+  });
+
+  return text;
+}
+
 export async function POST(request: NextRequest) {
   const requestId = generateRequestId();
 
@@ -197,6 +279,7 @@ export async function POST(request: NextRequest) {
     // Get user-provided API keys from headers (override env variables)
     const geminiApiKey = request.headers.get("X-Gemini-API-Key");
     const openaiApiKey = request.headers.get("X-OpenAI-API-Key");
+    const localLlmUrl = request.headers.get("X-Local-LLM-URL");
 
     const body: LLMGenerateRequest = await request.json();
     const {
@@ -233,6 +316,8 @@ export async function POST(request: NextRequest) {
       text = await generateWithGoogle(prompt, model, temperature, maxTokens, images, requestId, geminiApiKey);
     } else if (provider === "openai") {
       text = await generateWithOpenAI(prompt, model, temperature, maxTokens, images, requestId, openaiApiKey);
+    } else if (provider === "local") {
+      text = await generateWithLocal(prompt, model, temperature, maxTokens, images, requestId, localLlmUrl);
     } else {
       logger.warn('api.llm', 'Unknown provider requested', { requestId, provider });
       return NextResponse.json<LLMGenerateResponse>(
