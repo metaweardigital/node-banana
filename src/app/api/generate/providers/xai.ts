@@ -11,6 +11,20 @@ import { validateMediaUrl } from "@/utils/urlValidation";
 
 const XAI_API_BASE = "https://api.x.ai/v1";
 
+/** Extract a clean error message from an API error response (which may be JSON or HTML) */
+function parseXaiError(responseText: string, statusCode: number): string {
+  // Detect HTML error pages (e.g. Cloudflare 500/502/503)
+  if (responseText.trimStart().startsWith("<!") || responseText.trimStart().startsWith("<html")) {
+    return `Server error (HTTP ${statusCode}). The xAI API may be temporarily unavailable.`;
+  }
+  try {
+    const errorJson = JSON.parse(responseText);
+    return errorJson.error?.message || errorJson.error || errorJson.message || responseText;
+  } catch {
+    return responseText;
+  }
+}
+
 /**
  * Generate image using xAI API (text-to-image or image-to-image)
  */
@@ -60,6 +74,8 @@ export async function generateXaiImage(
       }
     }
 
+    console.log(`[API:${requestId}] xAI edit payload: ${JSON.stringify({ ...payload, prompt: payload.prompt?.toString().substring(0, 50), image: "(present)" })}`);
+
     const response = await fetch(`${XAI_API_BASE}/images/edits`, {
       method: "POST",
       headers: {
@@ -71,11 +87,7 @@ export async function generateXaiImage(
 
     if (!response.ok) {
       const errorText = await response.text();
-      let errorDetail = errorText;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorDetail = errorJson.error?.message || errorJson.error || errorJson.message || errorText;
-      } catch { /* keep raw text */ }
+      const errorDetail = parseXaiError(errorText, response.status);
 
       console.error(`[API:${requestId}] xAI image edit failed: ${response.status} - ${errorDetail}`);
 
@@ -108,7 +120,7 @@ export async function generateXaiImage(
       n: 1,
     };
 
-    // Apply user parameters
+    // Apply user parameters (aspect_ratio, resolution, n, etc.)
     if (input.parameters) {
       for (const [key, value] of Object.entries(input.parameters)) {
         if (value !== null && value !== undefined && value !== '' && key !== 'model') {
@@ -116,6 +128,8 @@ export async function generateXaiImage(
         }
       }
     }
+
+    console.log(`[API:${requestId}] xAI generation payload: ${JSON.stringify({ ...payload, prompt: payload.prompt?.toString().substring(0, 50) })}`);
 
     const response = await fetch(`${XAI_API_BASE}/images/generations`, {
       method: "POST",
@@ -128,11 +142,7 @@ export async function generateXaiImage(
 
     if (!response.ok) {
       const errorText = await response.text();
-      let errorDetail = errorText;
-      try {
-        const errorJson = JSON.parse(errorText);
-        errorDetail = errorJson.error?.message || errorJson.error || errorJson.message || errorText;
-      } catch { /* keep raw text */ }
+      const errorDetail = parseXaiError(errorText, response.status);
 
       console.error(`[API:${requestId}] xAI image generation failed: ${response.status} - ${errorDetail}`);
 
@@ -215,11 +225,7 @@ export async function generateWithXai(
 
   if (!submitResponse.ok) {
     const errorText = await submitResponse.text();
-    let errorDetail = errorText;
-    try {
-      const errorJson = JSON.parse(errorText);
-      errorDetail = errorJson.error?.message || errorJson.error || errorJson.message || errorText;
-    } catch { /* keep raw text */ }
+    const errorDetail = parseXaiError(errorText, submitResponse.status);
 
     console.error(`[API:${requestId}] xAI video submit failed: ${submitResponse.status} - ${errorDetail}`);
 
@@ -275,11 +281,7 @@ export async function generateWithXai(
 
       if (!pollResponse.ok) {
         const errorText = await pollResponse.text();
-        let errorDetail = errorText;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorDetail = errorJson.error?.message || errorJson.error || errorJson.message || errorText;
-        } catch { /* keep raw text */ }
+        const errorDetail = parseXaiError(errorText, pollResponse.status);
         console.error(`[API:${requestId}] xAI poll failed: ${pollResponse.status} - ${errorDetail}`);
         return { success: false, error: `xAI: ${errorDetail}` };
       }

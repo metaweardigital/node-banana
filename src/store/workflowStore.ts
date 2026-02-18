@@ -23,10 +23,12 @@ import {
   ProviderSettings,
   RecentModel,
   CanvasNavigationSettings,
+  LogEntry,
 } from "@/types";
 import { useToast } from "@/components/Toast";
 import { logger } from "@/utils/logger";
 import { externalizeWorkflowImages, hydrateWorkflowImages } from "@/utils/imageStorage";
+import { revokeBlobUrl } from "@/store/utils/executionUtils";
 import { EditOperation, applyEditOperations as executeEditOps } from "@/lib/chat/editOperations";
 import {
   loadSaveConfigs,
@@ -157,6 +159,13 @@ interface WorkflowStore {
   incrementModalCount: () => void;
   decrementModalCount: () => void;
   setShowQuickstart: (show: boolean) => void;
+
+  // Activity log (in-app console panel)
+  activityLog: LogEntry[];
+  activityLogOpen: boolean;
+  addActivityLog: (entry: Omit<LogEntry, 'id' | 'timestamp'>) => void;
+  clearActivityLog: () => void;
+  setActivityLogOpen: (open: boolean) => void;
 
   // Execution
   isRunning: boolean;
@@ -322,6 +331,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   openModalCount: 0,
   isModalOpen: false,
   showQuickstart: true,
+  activityLog: [],
+  activityLogOpen: false,
   isRunning: false,
   currentNodeIds: [],  // Changed from currentNodeId for parallel execution
   pausedAtNodeId: null,
@@ -432,6 +443,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   },
 
   removeNode: (nodeId: string) => {
+    // Revoke blob URLs on the node being removed to free memory
+    const removedNode = get().nodes.find((n) => n.id === nodeId);
+    if (removedNode) {
+      const d = removedNode.data as Record<string, unknown>;
+      revokeBlobUrl(d.outputVideo as string | undefined);
+      revokeBlobUrl(d.outputImage as string | undefined);
+      revokeBlobUrl(d.glbUrl as string | undefined);
+    }
+
     set((state) => ({
       nodes: state.nodes.filter((node) => node.id !== nodeId),
       edges: state.edges.filter(
@@ -449,6 +469,22 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     );
     // Track manual changes only for remove operations (not position/selection/dimensions)
     const hasRemoveChange = changes.some((c) => c.type === "remove");
+
+    // Revoke blob URLs for nodes being removed to free memory
+    if (hasRemoveChange) {
+      const currentNodes = get().nodes;
+      for (const change of changes) {
+        if (change.type === "remove") {
+          const node = currentNodes.find((n) => n.id === change.id);
+          if (node) {
+            const d = node.data as Record<string, unknown>;
+            revokeBlobUrl(d.outputVideo as string | undefined);
+            revokeBlobUrl(d.outputImage as string | undefined);
+            revokeBlobUrl(d.glbUrl as string | undefined);
+          }
+        }
+      }
+    }
 
     set((state) => ({
       nodes: applyNodeChanges(changes, state.nodes),
@@ -756,6 +792,21 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     }));
   },
 
+  addActivityLog: (entry) => {
+    const newEntry: LogEntry = {
+      ...entry,
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      timestamp: Date.now(),
+    };
+    set((state) => ({
+      activityLog: [...state.activityLog.slice(-499), newEntry],
+    }));
+  },
+
+  clearActivityLog: () => set({ activityLog: [] }),
+
+  setActivityLogOpen: (open) => set({ activityLogOpen: open }),
+
   getNodeById: (id: string) => {
     return get().nodes.find((node) => node.id === id);
   },
@@ -791,12 +842,13 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       set((state) => ({
         nodes: state.nodes.map((n) =>
           n.id === targetId && n.type === "outputGallery"
-            ? { ...n, data: { ...n.data, images: [image, ...((n.data as OutputGalleryNodeData).images || [])] } as WorkflowNodeData }
+            ? { ...n, data: { ...n.data, images: [image, ...((n.data as OutputGalleryNodeData).images || [])].slice(0, 50) } as WorkflowNodeData }
             : n
         ) as WorkflowNode[],
         hasUnsavedChanges: true,
       }));
     },
+    addActivityLog: (entry) => get().addActivityLog(entry),
     get: get as () => unknown,
   }),
 
@@ -812,6 +864,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     const abortController = new AbortController();
     const isResuming = startFromNodeId === get().pausedAtNodeId;
     set({ isRunning: true, pausedAtNodeId: null, currentNodeIds: [], _abortController: abortController });
+
+    get().addActivityLog({ level: 'info', message: '▶ Workflow started' });
 
     // Start logging session
     await logger.startSession();
@@ -876,6 +930,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         nodeId: node.id,
         nodeType: node.type,
       });
+
+      {
+        const nodeLabel = (node.data as { label?: string })?.label || node.id.slice(0, 8);
+        get().addActivityLog({ level: 'info', message: `Running ${node.type}`, nodeId: node.id, nodeLabel });
+      }
 
       const executionCtx = get()._buildExecutionContext(node, signal);
 
@@ -988,6 +1047,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       // Check if we completed or were aborted
       if (!abortController.signal.aborted && get().isRunning) {
         logger.info('workflow.end', 'Workflow execution completed successfully');
+        get().addActivityLog({ level: 'success', message: '■ Workflow complete' });
       }
 
       set({ isRunning: false, currentNodeIds: [], _abortController: null });
@@ -998,8 +1058,10 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       // Handle AbortError gracefully (user cancelled)
       if (error instanceof DOMException && error.name === 'AbortError') {
         logger.info('workflow.end', 'Workflow execution cancelled by user');
+        get().addActivityLog({ level: 'warn', message: '■ Workflow cancelled' });
       } else {
         logger.error('workflow.error', 'Workflow execution failed', {}, error instanceof Error ? error : undefined);
+        get().addActivityLog({ level: 'error', message: `■ Workflow failed: ${error instanceof Error ? error.message : 'Unknown error'}` });
         // Show error toast for the failed node
         useToast.getState().show(
           `Workflow failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -1017,7 +1079,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     // Abort any in-flight requests
     const controller = get()._abortController;
     if (controller) {
-      controller.abort("user-cancelled");
+      controller.abort(new DOMException("user-cancelled", "AbortError"));
     }
     set({ isRunning: false, currentNodeIds: [], _abortController: null });
   },
@@ -1108,14 +1170,19 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       saveLogSession();
       await logger.endSession();
     } catch (error) {
-      logger.error('node.error', 'Node regeneration failed', {
-        nodeId,
-      }, error instanceof Error ? error : undefined);
-      updateNodeData(nodeId, {
-        status: "error",
-        error: error instanceof Error ? error.message : "Regeneration failed",
-      });
-      set({ isRunning: false, currentNodeIds: [], _abortController: null });
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        // Cancelled — executors already reset their status to idle
+        set({ isRunning: false, currentNodeIds: [], _abortController: null });
+      } else {
+        logger.error('node.error', 'Node regeneration failed', {
+          nodeId,
+        }, error instanceof Error ? error : undefined);
+        updateNodeData(nodeId, {
+          status: "error",
+          error: error instanceof Error ? error.message : "Regeneration failed",
+        });
+        set({ isRunning: false, currentNodeIds: [], _abortController: null });
+      }
 
       saveLogSession();
       await logger.endSession();
@@ -1426,14 +1493,19 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     set({
       // Clear selected state - selection should not be persisted across sessions
       // Also validate position to ensure coordinates are finite numbers
-      nodes: hydratedWorkflow.nodes.map(node => ({
-        ...node,
-        selected: false,
-        position: {
-          x: isFinite(node.position?.x) ? node.position.x : 0,
-          y: isFinite(node.position?.y) ? node.position.y : 0,
-        },
-      })),
+      nodes: hydratedWorkflow.nodes.map(node => {
+        const data = node.data as Record<string, unknown>;
+        return {
+          ...node,
+          selected: false,
+          position: {
+            x: isFinite(node.position?.x) ? node.position.x : 0,
+            y: isFinite(node.position?.y) ? node.position.y : 0,
+          },
+          // Reset any stale loading state from mid-generation saves
+          data: data?.status === "loading" ? { ...data, status: "idle", error: null } : data,
+        } as WorkflowNode;
+      }),
       edges: hydratedWorkflow.edges,
       edgeStyle: hydratedWorkflow.edgeStyle || "angular",
       groups: hydratedWorkflow.groups || {},
@@ -1493,7 +1565,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     };
 
     set((state) => ({
-      globalImageHistory: [newItem, ...state.globalImageHistory],
+      globalImageHistory: [newItem, ...state.globalImageHistory].slice(0, 30),
     }));
   },
 
@@ -1598,11 +1670,36 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         });
       }
 
+      // Strip transient large data (blob URLs, video base64, video history)
+      // to avoid bloating the save file and crashing during JSON.stringify
+      const saveNodes = currentNodes.map((node) => {
+        const d = node.data as Record<string, unknown>;
+        const stripped: Record<string, unknown> = {};
+        let needsStrip = false;
+
+        // Strip blob URLs (not valid after reload) and video base64 data
+        for (const key of ["outputVideo"] as const) {
+          const val = d[key];
+          if (typeof val === "string" && (val.startsWith("blob:") || val.startsWith("data:video"))) {
+            stripped[key] = null;
+            needsStrip = true;
+          }
+        }
+        // Strip video history (large, contains base64 thumbnails)
+        if (d.videoHistory && Array.isArray(d.videoHistory) && (d.videoHistory as unknown[]).length > 0) {
+          stripped.videoHistory = [];
+          needsStrip = true;
+        }
+
+        if (!needsStrip) return node;
+        return { ...node, data: { ...d, ...stripped } as WorkflowNodeData };
+      }) as WorkflowNode[];
+
       let workflow: WorkflowFile = {
         version: 1,
         id: workflowId,
         name: workflowName,
-        nodes: currentNodes,
+        nodes: saveNodes,
         edges,
         edgeStyle,
         groups: groups && Object.keys(groups).length > 0 ? groups : undefined,

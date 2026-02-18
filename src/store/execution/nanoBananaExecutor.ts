@@ -35,6 +35,7 @@ export async function executeNanoBanana(
     generationsPath,
     trackSaveGeneration,
     appendOutputGalleryImage,
+    addActivityLog,
     get,
   } = ctx;
 
@@ -92,13 +93,52 @@ export async function executeNanoBanana(
     dynamicInputs,
   };
 
+  const nodeLabel = (node.data as { label?: string })?.label || node.id.slice(0, 8);
+  const nodeLogCtx = { nodeId: node.id, nodeLabel };
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 5000;
+
+  const modelName = nodeData.selectedModel?.displayName || nodeData.selectedModel?.modelId || nodeData.model || 'unknown';
+  const imgCount = images.length;
+  const promptPreview = promptText.length > 40 ? promptText.slice(0, 40) + '…' : promptText;
+
+  const fetchWithRetry = async (): Promise<Response> => {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt === 1) {
+        addActivityLog({
+          level: 'info',
+          message: `Sending to ${provider} · ${modelName}${imgCount > 0 ? ` · ${imgCount} img` : ''} · "${promptPreview}"`,
+          ...nodeLogCtx,
+        });
+      }
+      const fetchStart = Date.now();
+      const resp = await fetch("/api/generate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(requestPayload),
+        ...(signal ? { signal } : {}),
+      });
+
+      if (resp.status === 503 && attempt < MAX_RETRIES) {
+        const elapsed = ((Date.now() - fetchStart) / 1000).toFixed(1);
+        addActivityLog({
+          level: 'warn',
+          message: `503 — retry ${attempt}/${MAX_RETRIES - 1} in ${RETRY_DELAY_MS / 1000}s… (${elapsed}s)`,
+          ...nodeLogCtx,
+        });
+        await new Promise((res) => setTimeout(res, RETRY_DELAY_MS));
+        continue;
+      }
+      return resp;
+    }
+    // Should never reach here
+    throw new Error("Max retries exceeded");
+  };
+
+  const generateStart = Date.now();
+
   try {
-    const response = await fetch("/api/generate", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(requestPayload),
-      ...(signal ? { signal } : {}),
-    });
+    const response = await fetchWithRetry();
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -110,6 +150,7 @@ export async function executeNanoBanana(
         if (errorText) errorMessage += ` - ${errorText.substring(0, 200)}`;
       }
 
+      addActivityLog({ level: 'error', message: `Failed: ${errorMessage}`, ...nodeLogCtx });
       updateNodeData(node.id, {
         status: "error",
         error: errorMessage,
@@ -120,6 +161,8 @@ export async function executeNanoBanana(
     const result = await response.json();
 
     if (result.success && result.image) {
+      const elapsed = ((Date.now() - generateStart) / 1000).toFixed(1);
+      addActivityLog({ level: 'success', message: `Done in ${elapsed}s`, ...nodeLogCtx });
       const timestamp = Date.now();
       const imageId = `${timestamp}`;
 
@@ -140,7 +183,7 @@ export async function executeNanoBanana(
         aspectRatio: nodeData.aspectRatio,
         model: nodeData.model,
       };
-      const updatedHistory = [newHistoryItem, ...(nodeData.imageHistory || [])].slice(0, 50);
+      const updatedHistory = [newHistoryItem, ...(nodeData.imageHistory || [])].slice(0, 15);
 
       updateNodeData(node.id, {
         outputImage: result.image,
@@ -212,6 +255,7 @@ export async function executeNanoBanana(
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      updateNodeData(node.id, { status: "idle", error: null });
       throw error;
     }
 
@@ -225,6 +269,7 @@ export async function executeNanoBanana(
       errorMessage = error.message;
     }
 
+    addActivityLog({ level: 'error', message: `Failed: ${errorMessage}`, ...nodeLogCtx });
     updateNodeData(node.id, {
       status: "error",
       error: errorMessage,

@@ -168,8 +168,13 @@ export function VideoStitchNode({ id, data, selected }: NodeProps<VideoStitchNod
           if (cancelled) return;
 
           const canvas = document.createElement("canvas");
-          canvas.width = 160;
-          canvas.height = 120;
+          // Preserve source aspect ratio for vertical/square videos
+          const maxDim = 160;
+          const vw = video.videoWidth || 160;
+          const vh = video.videoHeight || 120;
+          const scale = Math.min(maxDim / vw, maxDim / vh);
+          canvas.width = Math.round(vw * scale);
+          canvas.height = Math.round(vh * scale);
           const ctx = canvas.getContext("2d");
           if (!ctx) continue;
 
@@ -432,7 +437,7 @@ export function VideoStitchNode({ id, data, selected }: NodeProps<VideoStitchNod
           ) : (
             <>
               {/* Filmstrip */}
-              <div className="overflow-y-auto nowheel grid grid-cols-4 content-start gap-2 p-2 bg-neutral-900/50 rounded">
+              <div className="overflow-y-auto nowheel flex flex-wrap content-start gap-2 p-2 bg-neutral-900/50 rounded">
                 {orderedClips.map((clip) => {
                   const thumbnail = thumbnails.get(clip.edgeId);
                   return (
@@ -442,7 +447,7 @@ export function VideoStitchNode({ id, data, selected }: NodeProps<VideoStitchNod
                       onPointerDown={(e) => handlePointerDown(e, clip.edgeId)}
                       onPointerMove={handlePointerMove}
                       onPointerUp={handlePointerUp}
-                      className={`nodrag relative w-full aspect-video bg-neutral-800 border rounded cursor-move transition-colors group ${
+                      className={`nodrag relative h-24 bg-neutral-800 border rounded cursor-move transition-colors group ${
                         draggedClipId === clip.edgeId
                           ? "opacity-50 border-blue-500"
                           : hoverClipId === clip.edgeId && draggedClipId
@@ -454,10 +459,10 @@ export function VideoStitchNode({ id, data, selected }: NodeProps<VideoStitchNod
                         <img
                           src={thumbnail}
                           alt={`Clip ${clip.edgeId}`}
-                          className="w-full h-full object-cover rounded"
+                          className="h-full w-auto object-contain rounded"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-16 h-full flex items-center justify-center">
                           <svg
                             className="w-4 h-4 text-neutral-500"
                             fill="none"

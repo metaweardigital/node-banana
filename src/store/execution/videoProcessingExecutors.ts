@@ -85,18 +85,8 @@ export async function executeVideoStitch(ctx: NodeExecutionContext): Promise<voi
       | undefined;
     revokeBlobUrl(oldData?.outputVideo as string | undefined);
 
-    let outputVideo: string;
-    if (outputBlob.size > 20 * 1024 * 1024) {
-      outputVideo = URL.createObjectURL(outputBlob);
-    } else {
-      const reader = new FileReader();
-      outputVideo = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("FileReader error while reading stitched video"));
-        reader.onabort = () => reject(new Error("FileReader aborted while reading stitched video"));
-        reader.readAsDataURL(outputBlob);
-      });
-    }
+    // Always use blob URL to avoid bloating Zustand state with base64
+    const outputVideo = URL.createObjectURL(outputBlob);
 
     updateNodeData(node.id, {
       outputVideo,
@@ -216,18 +206,8 @@ export async function executeEaseCurve(ctx: NodeExecutionContext): Promise<void>
       | undefined;
     revokeBlobUrl(oldData?.outputVideo as string | undefined);
 
-    let outputVideo: string;
-    if (outputBlob.size > 20 * 1024 * 1024) {
-      outputVideo = URL.createObjectURL(outputBlob);
-    } else {
-      const reader = new FileReader();
-      outputVideo = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error("FileReader error while reading ease curve video"));
-        reader.onabort = () => reject(new Error("FileReader aborted while reading ease curve video"));
-        reader.readAsDataURL(outputBlob);
-      });
-    }
+    // Always use blob URL to avoid bloating Zustand state with base64
+    const outputVideo = URL.createObjectURL(outputBlob);
 
     updateNodeData(node.id, {
       outputVideo,

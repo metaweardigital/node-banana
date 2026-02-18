@@ -87,6 +87,24 @@ async function getFalInputMapping(modelId: string, apiKey: string | null): Promi
         } else if (schema.properties) {
           inputSchema = schema;
           break;
+        } else if (schema.oneOf || schema.anyOf) {
+          // Merge all variant schemas (e.g. TextToImage + ImageToImage) so image_urls is detected
+          const variants = ((schema.oneOf || schema.anyOf) as Record<string, unknown>[]) || [];
+          const mergedProperties: Record<string, unknown> = {};
+          for (const variant of variants) {
+            let variantSchema = variant as Record<string, unknown>;
+            if (typeof variant.$ref === "string") {
+              const refPath = (variant.$ref as string).replace("#/components/schemas/", "");
+              variantSchema = spec.components?.schemas?.[refPath] as Record<string, unknown>;
+            }
+            if (variantSchema?.properties) {
+              Object.assign(mergedProperties, variantSchema.properties as Record<string, unknown>);
+            }
+          }
+          if (Object.keys(mergedProperties).length > 0) {
+            inputSchema = { properties: mergedProperties };
+            break;
+          }
         }
       }
     }
@@ -337,7 +355,12 @@ export async function generateWithFalQueue(
     let errorDetail = errorText || `HTTP ${submitResponse.status}`;
     try {
       const errorJson = JSON.parse(errorText);
-      if (typeof errorJson.error === 'object' && errorJson.error?.message) {
+      // Response may be a top-level array (e.g. fal validation/downstream errors)
+      if (Array.isArray(errorJson)) {
+        errorDetail = errorJson.map((d: { msg?: string }) =>
+          d.msg || JSON.stringify(d)
+        ).join('; ');
+      } else if (typeof errorJson.error === 'object' && errorJson.error?.message) {
         errorDetail = errorJson.error.message;
       } else if (errorJson.detail) {
         if (Array.isArray(errorJson.detail)) {

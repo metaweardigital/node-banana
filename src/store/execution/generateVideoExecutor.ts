@@ -126,9 +126,26 @@ export async function executeGenerateVideo(
     // Handle video response (video or videoUrl field)
     const videoData = result.video || result.videoUrl;
     if (result.success && (videoData || result.image)) {
-      const outputContent = videoData || result.image;
+      const rawContent = videoData || result.image;
       const timestamp = Date.now();
       const videoId = `${timestamp}`;
+
+      // Convert base64 data URLs to blob URLs to reduce memory pressure
+      let outputContent = rawContent;
+      if (typeof rawContent === "string" && rawContent.startsWith("data:")) {
+        try {
+          const res = await fetch(rawContent);
+          const blob = await res.blob();
+          // Revoke previous blob URL if any
+          const oldData = getNodes().find((n) => n.id === node.id)?.data as Record<string, unknown> | undefined;
+          const oldVideo = oldData?.outputVideo as string | undefined;
+          if (oldVideo?.startsWith("blob:")) URL.revokeObjectURL(oldVideo);
+          outputContent = URL.createObjectURL(blob);
+        } catch {
+          // Fallback to raw data URL if conversion fails
+          outputContent = rawContent;
+        }
+      }
 
       // Add to node's video history
       const newHistoryItem = {
@@ -137,7 +154,7 @@ export async function executeGenerateVideo(
         prompt: text || "",
         model: nodeData.selectedModel?.modelId || "",
       };
-      const updatedHistory = [newHistoryItem, ...(nodeData.videoHistory || [])].slice(0, 50);
+      const updatedHistory = [newHistoryItem, ...(nodeData.videoHistory || [])].slice(0, 15);
 
       updateNodeData(node.id, {
         outputVideo: outputContent,
@@ -198,6 +215,7 @@ export async function executeGenerateVideo(
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      updateNodeData(node.id, { status: "idle", error: null });
       throw error;
     }
 
