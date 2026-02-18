@@ -68,7 +68,6 @@ const EXCLUDED_PARAMS = new Set([
   "disable_safety_checker",
   "go_fast",
   "enable_safety_checker",
-  "output_format",
   "output_quality",
   "request_id",
 ]);
@@ -91,6 +90,12 @@ const PRIORITY_PARAMS = new Set([
   "strength",
   "cfg_scale",
   "lora_scale",
+  "output_format",
+  "safety_tolerance",
+  "resolution",
+  "enable_web_search",
+  "limit_generations",
+  "aspect_ratio",
 ]);
 
 interface SchemaSuccessResponse {
@@ -406,6 +411,28 @@ async function fetchFalSchema(
       } else if (schema.properties) {
         inputSchema = schema;
         break;
+      } else if (schema.oneOf || schema.anyOf) {
+        // Merge all variant schemas (e.g. TextToImageInput + ImageToImageInput)
+        const variants = ((schema.oneOf || schema.anyOf) as Record<string, unknown>[]) || [];
+        const mergedProperties: Record<string, unknown> = {};
+        const mergedRequired = new Set<string>();
+        for (const variant of variants) {
+          let variantSchema = variant as Record<string, unknown>;
+          if (typeof variant.$ref === "string") {
+            const refPath = (variant.$ref as string).replace("#/components/schemas/", "");
+            variantSchema = spec.components?.schemas?.[refPath] as Record<string, unknown>;
+          }
+          if (variantSchema?.properties) {
+            Object.assign(mergedProperties, variantSchema.properties as Record<string, unknown>);
+          }
+          if (Array.isArray(variantSchema?.required)) {
+            for (const r of variantSchema.required as string[]) mergedRequired.add(r);
+          }
+        }
+        if (Object.keys(mergedProperties).length > 0) {
+          inputSchema = { properties: mergedProperties, required: Array.from(mergedRequired) };
+          break;
+        }
       }
     }
   }
@@ -508,7 +535,8 @@ function getXaiSchema(modelId: string): ExtractedSchema {
     "grok-imagine-image-pro": {
       parameters: [
         { name: "n", type: "integer", description: "Number of images to generate", minimum: 1, maximum: 10, default: 1 },
-        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"], default: "auto" },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "2:1", "1:2"], default: "auto" },
+        { name: "resolution", type: "string", description: "Output resolution", enum: ["1k", "2k"], default: "1k" },
       ],
       inputs: [
         { name: "prompt", type: "text", required: true, label: "Prompt" },
@@ -518,7 +546,8 @@ function getXaiSchema(modelId: string): ExtractedSchema {
     "grok-imagine-image": {
       parameters: [
         { name: "n", type: "integer", description: "Number of images to generate", minimum: 1, maximum: 10, default: 1 },
-        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"], default: "auto" },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["auto", "1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3", "2:1", "1:2"], default: "auto" },
+        { name: "resolution", type: "string", description: "Output resolution", enum: ["1k", "2k"], default: "1k" },
       ],
       inputs: [
         { name: "prompt", type: "text", required: true, label: "Prompt" },

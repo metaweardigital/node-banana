@@ -108,6 +108,7 @@ export async function executeLlmGenerate(
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      updateNodeData(node.id, { status: "idle", error: null });
       throw error;
     }
 

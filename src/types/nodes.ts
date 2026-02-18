@@ -39,7 +39,8 @@ export type NodeType =
   | "easeCurve"
   | "generate3d"
   | "glbViewer"
-  | "promptEvasion";
+  | "promptEvasion"
+  | "textLabel";
 
 /**
  * Node execution status
@@ -309,6 +310,16 @@ export interface GLBViewerNodeData extends BaseNodeData {
 }
 
 /**
+ * Text Label node - purely visual text/heading for canvas organization
+ */
+export type TextLabelPreset = "h1" | "h2" | "h3" | "body";
+
+export interface TextLabelNodeData extends BaseNodeData {
+  text: string;
+  preset: TextLabelPreset;
+}
+
+/**
  * Prompt Evasion node - transforms text using unicode evasion techniques for testing moderation
  */
 export interface PromptEvasionNodeData extends BaseNodeData {
@@ -339,7 +350,8 @@ export type WorkflowNodeData =
   | VideoStitchNodeData
   | EaseCurveNodeData
   | GLBViewerNodeData
-  | PromptEvasionNodeData;
+  | PromptEvasionNodeData
+  | TextLabelNodeData;
 
 /**
  * Workflow node with typed data (extended with optional groupId)

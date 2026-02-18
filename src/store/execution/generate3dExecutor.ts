@@ -147,6 +147,7 @@ export async function executeGenerate3D(
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
+      updateNodeData(node.id, { status: "idle", error: null });
       throw error;
     }
 

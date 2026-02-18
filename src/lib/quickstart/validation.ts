@@ -43,6 +43,8 @@ const DEFAULT_DIMENSIONS: Record<NodeType, { width: number; height: number }> = 
   videoStitch: { width: 400, height: 280 },
   easeCurve: { width: 340, height: 480 },
   glbViewer: { width: 360, height: 380 },
+  promptEvasion: { width: 340, height: 320 },
+  textLabel: { width: 320, height: 60 },
 };
 
 /**
@@ -332,6 +334,19 @@ function createDefaultNodeData(type: NodeType): WorkflowNodeData {
         glbUrl: null,
         filename: null,
         capturedImage: null,
+      };
+    case "promptEvasion":
+      return {
+        inputText: "",
+        outputText: null,
+        technique: "none",
+        status: "idle",
+        error: null,
+      };
+    case "textLabel":
+      return {
+        text: "Title",
+        preset: "h1",
       };
   }
 }

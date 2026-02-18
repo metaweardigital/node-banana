@@ -37,6 +37,7 @@ import {
   VideoStitchNode,
   EaseCurveNode,
   PromptEvasionNode,
+  TextLabelNode,
 } from "./nodes";
 
 // Lazy-load GLBViewerNode to avoid bundling three.js for users who don't use 3D nodes
@@ -54,6 +55,7 @@ import { logger } from "@/utils/logger";
 import { WelcomeModal } from "./quickstart";
 import { ProjectSetupModal } from "./ProjectSetupModal";
 import { ChatPanel } from "./ChatPanel";
+import { ActivityLogPanel } from "./ActivityLogPanel";
 import { EditOperation } from "@/lib/chat/editOperations";
 import { stripBinaryData } from "@/lib/chat/contextBuilder";
 
@@ -75,6 +77,7 @@ const nodeTypes: NodeTypes = {
   easeCurve: EaseCurveNode,
   glbViewer: GLBViewerNode,
   promptEvasion: PromptEvasionNode,
+  textLabel: TextLabelNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -1107,6 +1110,8 @@ export function WorkflowCanvas() {
             videoStitch: { width: 400, height: 280 },
             easeCurve: { width: 340, height: 480 },
             glbViewer: { width: 360, height: 380 },
+            promptEvasion: { width: 340, height: 320 },
+            textLabel: { width: 320, height: 60 },
           };
           const dims = defaultDimensions[nodeType];
           addNode(nodeType, { x: centerX - dims.width / 2, y: centerY - dims.height / 2 });
@@ -1694,6 +1699,8 @@ export function WorkflowCanvas() {
                 return "#38bdf8"; // sky-400 (3D viewport)
               case "promptEvasion":
                 return "#f43f5e"; // rose-500 (evasion testing)
+              case "textLabel":
+                return "#e2e8f0"; // slate-200 (neutral text)
               default:
                 return "#94a3b8";
             }
@@ -1722,6 +1729,9 @@ export function WorkflowCanvas() {
       <GlobalImageHistory />
 
       {/* Chat toggle button - hidden for now */}
+
+      {/* Activity log panel */}
+      <ActivityLogPanel />
 
       {/* Chat panel */}
       <ChatPanel

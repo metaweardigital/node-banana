@@ -119,15 +119,25 @@ export async function generateWithGemini(
     );
   }
 
-  const parts = candidates[0].content?.parts;
-  console.log(`[API:${requestId}] Response parts: ${parts?.length || 0}`);
+  const candidate = candidates[0];
+  const parts = candidate.content?.parts;
+  console.log(`[API:${requestId}] Response parts: ${parts?.length || 0}, finishReason: ${candidate.finishReason || "unknown"}`);
 
   if (!parts) {
-    console.error(`[API:${requestId}] No parts in Gemini candidate content`);
+    const finishReason = candidate.finishReason || "unknown";
+    const safetyRatings = candidate.safetyRatings;
+    const blocked = safetyRatings?.filter((r) => r.probability === "HIGH" || r.probability === "MEDIUM");
+    const detail = finishReason === "SAFETY"
+      ? "Content was blocked by safety filters"
+      : blocked && blocked.length > 0
+        ? `Filtered by: ${blocked.map((r) => r.category).join(", ")}`
+        : `Empty response (finishReason: ${finishReason})`;
+
+    console.error(`[API:${requestId}] No parts in Gemini candidate: ${detail}`);
     return NextResponse.json<GenerateResponse>(
       {
         success: false,
-        error: "No content in response",
+        error: detail,
       },
       { status: 500 }
     );

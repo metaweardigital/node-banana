@@ -6,6 +6,31 @@ import { NodeType } from "@/types";
 import { useReactFlow } from "@xyflow/react";
 import { ModelSearchDialog } from "./modals/ModelSearchDialog";
 
+function LogToggleButton() {
+  const activityLogOpen = useWorkflowStore((s) => s.activityLogOpen);
+  const setActivityLogOpen = useWorkflowStore((s) => s.setActivityLogOpen);
+  const activityLog = useWorkflowStore((s) => s.activityLog);
+
+  return (
+    <button
+      onClick={() => setActivityLogOpen(!activityLogOpen)}
+      title="Toggle activity log"
+      className={`p-1.5 rounded transition-colors ${
+        activityLogOpen
+          ? "text-neutral-100 bg-neutral-700"
+          : "text-neutral-400 hover:text-neutral-100 hover:bg-neutral-700"
+      }`}
+    >
+      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+      </svg>
+      {activityLog.length > 0 && !activityLogOpen && (
+        <span className="sr-only">{activityLog.length} entries</span>
+      )}
+    </button>
+  );
+}
+
 // Get the center of the React Flow pane in screen coordinates
 function getPaneCenter() {
   const pane = document.querySelector('.react-flow');
@@ -260,6 +285,7 @@ export function FloatingActionBar() {
   return (
     <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
       <div className="flex items-center gap-0.5 bg-neutral-800/95 backdrop-blur-sm rounded-lg shadow-lg border border-neutral-700/80 px-1.5 py-1">
+        <NodeButton type="textLabel" label="Text" />
         <NodeButton type="imageInput" label="Image" />
         <NodeButton type="annotation" label="Annotate" />
         <NodeButton type="prompt" label="Prompt" />
@@ -296,6 +322,11 @@ export function FloatingActionBar() {
             </svg>
           )}
         </button>
+
+        <div className="w-px h-5 bg-neutral-600 mx-1.5" />
+
+        {/* Activity log toggle */}
+        <LogToggleButton />
 
         <div className="w-px h-5 bg-neutral-600 mx-1.5" />
 

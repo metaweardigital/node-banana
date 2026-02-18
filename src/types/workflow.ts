@@ -7,6 +7,18 @@
 
 import { Edge } from "@xyflow/react";
 
+// Activity log entry for the in-app console panel
+export type LogLevel = 'info' | 'warn' | 'error' | 'success';
+
+export interface LogEntry {
+  id: string;
+  timestamp: number;
+  level: LogLevel;
+  nodeId?: string;
+  nodeLabel?: string;
+  message: string;
+}
+
 // Workflow Edge Data
 export interface WorkflowEdgeData extends Record<string, unknown> {
   hasPause?: boolean;

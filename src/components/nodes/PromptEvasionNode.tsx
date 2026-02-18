@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { Handle, Position, NodeProps, Node } from "@xyflow/react";
 import { BaseNode } from "./BaseNode";
 import { useWorkflowStore } from "@/store/workflowStore";
@@ -40,18 +40,12 @@ export function PromptEvasionNode({ id, data, selected }: NodeProps<PromptEvasio
     [id, nodeData.inputText, updateNodeData]
   );
 
-  // Live preview of the output
-  const preview = useMemo(() => {
-    if (!nodeData.outputText) return null;
-    // For "all" mode, truncate to avoid huge display
-    if (nodeData.technique === "all") {
-      const lines = nodeData.outputText.split("\n");
-      return lines.length > 20
-        ? lines.slice(0, 20).join("\n") + "\n..."
-        : nodeData.outputText;
-    }
-    return nodeData.outputText;
-  }, [nodeData.outputText, nodeData.technique]);
+  const handleOutputChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      updateNodeData(id, { outputText: e.target.value || null });
+    },
+    [id, updateNodeData]
+  );
 
   return (
     <BaseNode
@@ -84,7 +78,7 @@ export function PromptEvasionNode({ id, data, selected }: NodeProps<PromptEvasio
           value={nodeData.inputText}
           onChange={handleTextChange}
           placeholder="Enter normal prompt text..."
-          className="nodrag nopan nowheel w-full h-16 text-[10px] p-1.5 border border-neutral-700 rounded bg-neutral-900/50 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-neutral-600"
+          className="nodrag nopan nowheel w-full flex-1 min-h-[80px] text-[10px] p-1.5 border border-neutral-700 rounded bg-neutral-900/50 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-neutral-600"
         />
 
         {/* Technique selector */}
@@ -100,20 +94,13 @@ export function PromptEvasionNode({ id, data, selected }: NodeProps<PromptEvasio
           ))}
         </select>
 
-        {/* Output preview */}
-        <div className="nodrag nopan nowheel flex-1 min-h-[60px] border border-dashed border-neutral-600 rounded p-1.5 overflow-auto">
-          {preview ? (
-            <p className="text-[10px] text-neutral-300 whitespace-pre-wrap break-all font-mono">
-              {preview}
-            </p>
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <span className="text-neutral-500 text-[10px]">
-                Transformed output
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Editable output */}
+        <textarea
+          value={nodeData.outputText ?? ""}
+          onChange={handleOutputChange}
+          placeholder="Transformed output"
+          className="nodrag nopan nowheel w-full flex-1 min-h-[60px] text-[10px] p-1.5 border border-dashed border-neutral-600 rounded bg-neutral-900/30 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-neutral-600 font-mono break-all"
+        />
       </div>
     </BaseNode>
   );

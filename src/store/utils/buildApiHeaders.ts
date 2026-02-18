@@ -19,6 +19,7 @@ const PROVIDER_HEADER_MAP: Record<ProviderType, string> = {
   xai: "X-XAI-Key",
   openai: "X-OpenAI-API-Key",
   comfyui: "X-ComfyUI-Server",
+  local: "X-Local-LLM-URL",
 };
 
 /**

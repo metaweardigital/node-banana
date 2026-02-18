@@ -679,6 +679,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Pass through 503 so the client can retry
+    const isUnavailable =
+      errorMessage.includes("503") ||
+      (error && typeof error === "object" && (error as Record<string, unknown>).status === "UNAVAILABLE");
+    if (isUnavailable) {
+      return NextResponse.json<GenerateResponse>(
+        { success: false, error: "Model is overloaded, please try again later." },
+        { status: 503 }
+      );
+    }
+
     console.error(`[API:${requestId}] Generation error: ${errorMessage}${errorDetails ? ` (${errorDetails.substring(0, 200)})` : ""}`);
     return NextResponse.json<GenerateResponse>(
       {

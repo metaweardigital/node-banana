@@ -11,6 +11,7 @@ import type {
   WorkflowNodeData,
   ProviderSettings,
   ImageHistoryItem,
+  LogEntry,
 } from "@/types";
 import type { ConnectedInputs } from "@/store/utils/connectedInputs";
 
@@ -47,6 +48,7 @@ export interface NodeExecutionContext {
   saveDirectoryPath: string | null;
   trackSaveGeneration: (key: string, promise: Promise<void>) => void;
   appendOutputGalleryImage: (targetId: string, image: string) => void;
+  addActivityLog: (entry: Omit<LogEntry, 'id' | 'timestamp'>) => void;
   get: () => unknown;
 }
 

@@ -137,8 +137,8 @@ class Logger {
       this.currentSession.entries.push(entry);
     }
 
-    // Also log to console for development
-    const consoleMethod = level === 'error' ? 'error' : level === 'warn' ? 'warn' : 'log';
+    // Also log to console for development (use warn instead of error to avoid Turbopack overlay)
+    const consoleMethod = level === 'warn' || level === 'error' ? 'warn' : 'log';
     console[consoleMethod](`[${category}] ${message}`, context || '', error || '');
   }
 

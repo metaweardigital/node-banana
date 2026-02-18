@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toast } from "@/components/Toast";
+import { AbortErrorSuppressor } from "@/components/AbortErrorSuppressor";
 
 export const metadata: Metadata = {
   title: "Node Banana - AI Image Workflow",
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body className="antialiased">
         {children}
         <Toast />
+        <AbortErrorSuppressor />
       </body>
     </html>
   );
