@@ -44,7 +44,7 @@ export const defaultNodeDimensions: Record<NodeType, { width: number; height: nu
   videoStitch: { width: 400, height: 280 },
   easeCurve: { width: 340, height: 480 },
   glbViewer: { width: 360, height: 380 },
-  promptEvasion: { width: 320, height: 420 },
+  promptEvasion: { width: 320, height: 460 },
   textLabel: { width: 320, height: 60 },
 };
 
