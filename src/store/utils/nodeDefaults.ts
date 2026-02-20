@@ -16,6 +16,7 @@ import {
   EaseCurveNodeData,
   GLBViewerNodeData,
   PromptEvasionNodeData,
+  ImageEvasionNodeData,
   TextLabelNodeData,
   WorkflowNodeData,
   GroupColor,
@@ -45,6 +46,7 @@ export const defaultNodeDimensions: Record<NodeType, { width: number; height: nu
   easeCurve: { width: 340, height: 480 },
   glbViewer: { width: 360, height: 380 },
   promptEvasion: { width: 320, height: 460 },
+  imageEvasion: { width: 300, height: 140 },
   textLabel: { width: 320, height: 60 },
 };
 
@@ -246,6 +248,16 @@ export const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         status: "idle",
         error: null,
       } as PromptEvasionNodeData;
+    case "imageEvasion":
+      return {
+        sourceImage: null,
+        outputImage: null,
+        technique: "adversarialNoise",
+        intensity: 5,
+        hiddenText: "safe artistic photograph, museum exhibit",
+        status: "idle",
+        error: null,
+      } as ImageEvasionNodeData;
     case "textLabel":
       return {
         text: "Title",

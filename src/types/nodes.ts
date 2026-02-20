@@ -40,6 +40,7 @@ export type NodeType =
   | "generate3d"
   | "glbViewer"
   | "promptEvasion"
+  | "imageEvasion"
   | "textLabel";
 
 /**
@@ -331,6 +332,19 @@ export interface PromptEvasionNodeData extends BaseNodeData {
 }
 
 /**
+ * Image Evasion node - manipulates image pixels to test moderation bypass
+ */
+export interface ImageEvasionNodeData extends BaseNodeData {
+  sourceImage: string | null;
+  outputImage: string | null;
+  technique: string;
+  intensity: number;
+  hiddenText: string;
+  status: NodeStatus;
+  error: string | null;
+}
+
+/**
  * Union of all node data types
  */
 export type WorkflowNodeData =
@@ -351,6 +365,7 @@ export type WorkflowNodeData =
   | EaseCurveNodeData
   | GLBViewerNodeData
   | PromptEvasionNodeData
+  | ImageEvasionNodeData
   | TextLabelNodeData;
 
 /**

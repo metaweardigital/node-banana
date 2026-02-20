@@ -17,6 +17,7 @@ export {
   executeImageCompare,
   executeGlbViewer,
   executePromptEvasion,
+  executeImageEvasion,
 } from "./simpleNodeExecutors";
 
 export { executeNanoBanana } from "./nanoBananaExecutor";

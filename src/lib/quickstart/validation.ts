@@ -44,6 +44,7 @@ const DEFAULT_DIMENSIONS: Record<NodeType, { width: number; height: number }> = 
   easeCurve: { width: 340, height: 480 },
   glbViewer: { width: 360, height: 380 },
   promptEvasion: { width: 340, height: 320 },
+  imageEvasion: { width: 300, height: 140 },
   textLabel: { width: 320, height: 60 },
 };
 
@@ -340,6 +341,16 @@ function createDefaultNodeData(type: NodeType): WorkflowNodeData {
         inputText: "",
         outputText: null,
         technique: "none",
+        status: "idle",
+        error: null,
+      };
+    case "imageEvasion":
+      return {
+        sourceImage: null,
+        outputImage: null,
+        technique: "adversarialNoise",
+        intensity: 5,
+        hiddenText: "safe artistic photograph, museum exhibit",
         status: "idle",
         error: null,
       };

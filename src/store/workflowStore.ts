@@ -76,6 +76,7 @@ import {
   executeEaseCurve,
   executeGlbViewer,
   executePromptEvasion,
+  executeImageEvasion,
 } from "./execution";
 import type { NodeExecutionContext } from "./execution";
 export type { LevelGroup } from "./utils/executionUtils";
@@ -182,7 +183,7 @@ interface WorkflowStore {
 
   // Save/Load
   saveWorkflow: (name?: string) => void;
-  loadWorkflow: (workflow: WorkflowFile, workflowPath?: string, options?: { preserveSnapshot?: boolean }) => Promise<void>;
+  loadWorkflow: (workflow: WorkflowFile, workflowPath?: string, options?: { preserveSnapshot?: boolean; fromFileImport?: boolean }) => Promise<void>;
   clearWorkflow: () => void;
 
   // Helpers
@@ -881,6 +882,15 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     // Group nodes by level for parallel execution
     const levels = groupNodesByLevel(nodes, edges);
 
+    // Debug: log level grouping
+    for (const level of levels) {
+      const nodeTypes = level.nodeIds.map(id => {
+        const n = nodes.find(nd => nd.id === id);
+        return `${n?.type || '?'}(${id.slice(0, 6)})`;
+      });
+      console.log(`[Execution] Level ${level.level}: [${nodeTypes.join(', ')}]`);
+    }
+
     // Find starting level if startFromNodeId specified
     let startLevel = 0;
     if (startFromNodeId) {
@@ -988,6 +998,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           case "promptEvasion":
             await executePromptEvasion(executionCtx);
             break;
+          case "imageEvasion":
+            await executeImageEvasion(executionCtx);
+            break;
         }
     }; // End of executeSingleNode helper
 
@@ -1091,10 +1104,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   },
 
   regenerateNode: async (nodeId: string) => {
-    const { nodes, updateNodeData, isRunning } = get();
+    const { nodes, updateNodeData, currentNodeIds } = get();
 
-    if (isRunning) {
-      logger.warn('node.execution', 'Cannot regenerate node, workflow already running', { nodeId });
+    // Block only if THIS specific node is already running (allow other nodes to run in parallel)
+    if (currentNodeIds.includes(nodeId)) {
+      logger.warn('node.execution', 'Node already running, ignoring regeneration request', { nodeId });
       return;
     }
 
@@ -1105,7 +1119,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     }
 
     const abortController = new AbortController();
-    set({ isRunning: true, currentNodeIds: [nodeId], _abortController: abortController });
+    // Add this node to the running set (don't replace — merge with existing)
+    const updatedNodeIds = [...get().currentNodeIds, nodeId];
+    set({ isRunning: true, currentNodeIds: updatedNodeIds, _abortController: abortController });
 
     await logger.startSession();
     logger.info('node.execution', 'Regenerating node', {
@@ -1130,12 +1146,14 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         await executeSplitGrid(executionCtx);
       } else if (node.type === "videoStitch") {
         await executeVideoStitch(executionCtx);
-        set({ isRunning: false, currentNodeIds: [], _abortController: null });
+        const remaining = get().currentNodeIds.filter(id => id !== nodeId);
+        set({ isRunning: remaining.length > 0, currentNodeIds: remaining, ...(!remaining.length ? { _abortController: null } : {}) });
         await logger.endSession();
         return;
       } else if (node.type === "easeCurve") {
         await executeEaseCurve(executionCtx);
-        set({ isRunning: false, currentNodeIds: [], _abortController: null });
+        const remaining = get().currentNodeIds.filter(id => id !== nodeId);
+        set({ isRunning: remaining.length > 0, currentNodeIds: remaining, ...(!remaining.length ? { _abortController: null } : {}) });
         await logger.endSession();
         return;
       }
@@ -1165,14 +1183,17 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       }
 
       logger.info('node.execution', 'Node regeneration completed successfully', { nodeId });
-      set({ isRunning: false, currentNodeIds: [], _abortController: null });
+      // Remove this node from running set; only clear isRunning if no other nodes are executing
+      const remainingAfterSuccess = get().currentNodeIds.filter(id => id !== nodeId);
+      set({ isRunning: remainingAfterSuccess.length > 0, currentNodeIds: remainingAfterSuccess, ...(!remainingAfterSuccess.length ? { _abortController: null } : {}) });
 
       saveLogSession();
       await logger.endSession();
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         // Cancelled — executors already reset their status to idle
-        set({ isRunning: false, currentNodeIds: [], _abortController: null });
+        const remainingAfterAbort = get().currentNodeIds.filter(id => id !== nodeId);
+        set({ isRunning: remainingAfterAbort.length > 0, currentNodeIds: remainingAfterAbort, ...(!remainingAfterAbort.length ? { _abortController: null } : {}) });
       } else {
         logger.error('node.error', 'Node regeneration failed', {
           nodeId,
@@ -1181,7 +1202,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           status: "error",
           error: error instanceof Error ? error.message : "Regeneration failed",
         });
-        set({ isRunning: false, currentNodeIds: [], _abortController: null });
+        const remainingAfterError = get().currentNodeIds.filter(id => id !== nodeId);
+        set({ isRunning: remainingAfterError.length > 0, currentNodeIds: remainingAfterError, ...(!remainingAfterError.length ? { _abortController: null } : {}) });
       }
 
       saveLogSession();
@@ -1286,6 +1308,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           break;
         case "promptEvasion":
           await executePromptEvasion(executionCtx);
+          break;
+        case "imageEvasion":
+          await executeImageEvasion(executionCtx);
           break;
       }
     };
@@ -1426,7 +1451,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
     URL.revokeObjectURL(url);
   },
 
-  loadWorkflow: async (workflow: WorkflowFile, workflowPath?: string, options?: { preserveSnapshot?: boolean }) => {
+  loadWorkflow: async (workflow: WorkflowFile, workflowPath?: string, options?: { preserveSnapshot?: boolean; fromFileImport?: boolean }) => {
     // Update nodeIdCounter to avoid ID collisions
     const maxNodeId = workflow.nodes.reduce((max, node) => {
       const match = node.id.match(/-(\d+)$/);
@@ -1471,7 +1496,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
     // Look up saved config from localStorage (only if workflow has an ID)
     const configs = loadSaveConfigs();
-    const savedConfig = workflow.id ? configs[workflow.id] : null;
+    const savedConfig = (!options?.fromFileImport && workflow.id) ? configs[workflow.id] : null;
 
     // Determine the workflow directory path (passed in or from saved config)
     const directoryPath = workflowPath || savedConfig?.directoryPath;
@@ -1494,7 +1519,35 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
       // Clear selected state - selection should not be persisted across sessions
       // Also validate position to ensure coordinates are finite numbers
       nodes: hydratedWorkflow.nodes.map(node => {
-        const data = node.data as Record<string, unknown>;
+        let data = node.data as Record<string, unknown>;
+
+        // Reset any stale loading state from mid-generation saves
+        if (data?.status === "loading") {
+          data = { ...data, status: "idle", error: null };
+        }
+
+        // When importing from file, strip generation outputs and history
+        // since they reference files in the original project's folder
+        if (options?.fromFileImport) {
+          data = { ...data };
+          // Clear image generation history & output
+          if (Array.isArray(data.imageHistory) && (data.imageHistory as unknown[]).length > 0) {
+            data.imageHistory = [];
+            data.selectedHistoryIndex = 0;
+          }
+          // Clear video generation history & output
+          if (Array.isArray(data.videoHistory) && (data.videoHistory as unknown[]).length > 0) {
+            data.videoHistory = [];
+            data.selectedVideoHistoryIndex = 0;
+          }
+          // Clear output refs that point to old project files
+          if (data.outputImageRef) data.outputImageRef = undefined;
+          if (data.outputVideoRef) data.outputVideoRef = undefined;
+          if (data.outputImage) data.outputImage = null;
+          if (data.outputVideo) data.outputVideo = null;
+          if (data.outputText) data.outputText = null;
+        }
+
         return {
           ...node,
           selected: false,
@@ -1502,8 +1555,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             x: isFinite(node.position?.x) ? node.position.x : 0,
             y: isFinite(node.position?.y) ? node.position.y : 0,
           },
-          // Reset any stale loading state from mid-generation saves
-          data: data?.status === "loading" ? { ...data, status: "idle", error: null } : data,
+          data,
         } as WorkflowNode;
       }),
       edges: hydratedWorkflow.edges,
@@ -1685,9 +1737,12 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
             needsStrip = true;
           }
         }
-        // Strip video history (large, contains base64 thumbnails)
+        // Strip video history down to just the last viewed item (for restoration on load)
         if (d.videoHistory && Array.isArray(d.videoHistory) && (d.videoHistory as unknown[]).length > 0) {
-          stripped.videoHistory = [];
+          const selectedIndex = typeof d.selectedVideoHistoryIndex === "number" ? d.selectedVideoHistoryIndex : 0;
+          const lastItem = (d.videoHistory as unknown[])[selectedIndex];
+          stripped.videoHistory = lastItem ? [lastItem] : [];
+          stripped.selectedVideoHistoryIndex = 0;
           needsStrip = true;
         }
 
@@ -2092,11 +2147,13 @@ export function useProviderApiKeys() {
       kieApiKey: state.providerSettings.providers.kie?.apiKey ?? null,
       wavespeedApiKey: state.providerSettings.providers.wavespeed?.apiKey ?? null,
       xaiApiKey: state.providerSettings.providers.xai?.apiKey ?? null,
+      bflApiKey: state.providerSettings.providers.bfl?.apiKey ?? null,
       comfyuiServerUrl: state.providerSettings.providers.comfyui?.apiKey ?? null,
       // Provider enabled states (for conditional UI)
       replicateEnabled: state.providerSettings.providers.replicate?.enabled ?? false,
       kieEnabled: state.providerSettings.providers.kie?.enabled ?? false,
       xaiEnabled: state.providerSettings.providers.xai?.enabled ?? false,
+      bflEnabled: state.providerSettings.providers.bfl?.enabled ?? false,
       comfyuiEnabled: state.providerSettings.providers.comfyui?.enabled ?? false,
     }))
   );

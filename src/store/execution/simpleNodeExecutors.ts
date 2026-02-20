@@ -12,11 +12,13 @@ import type {
   PromptConstructorNodeData,
   PromptNodeData,
   PromptEvasionNodeData,
+  ImageEvasionNodeData,
   OutputNodeData,
   OutputGalleryNodeData,
   WorkflowNode,
 } from "@/types";
 import { applyEvasion, type EvasionTechnique } from "@/utils/promptEvasion";
+import { applyImageEvasion, type ImageEvasionTechnique } from "@/utils/imageEvasion";
 import type { NodeExecutionContext } from "./types";
 
 /**
@@ -281,6 +283,36 @@ export async function executePromptEvasion(ctx: NodeExecutionContext): Promise<v
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[Workflow] PromptEvasion node ${node.id} failed:`, message);
+    updateNodeData(node.id, { status: "error", error: message });
+  }
+}
+
+/**
+ * ImageEvasion node: applies pixel-level evasion techniques to input image.
+ * Pure client-side transform via Canvas API, no API call needed.
+ */
+export async function executeImageEvasion(ctx: NodeExecutionContext): Promise<void> {
+  const { node, getConnectedInputs, updateNodeData } = ctx;
+  try {
+    const nodeData = node.data as ImageEvasionNodeData;
+    const { images } = getConnectedInputs(node.id);
+    const sourceImage = images[0] || nodeData.sourceImage;
+
+    if (!sourceImage) {
+      updateNodeData(node.id, { outputImage: null, status: "idle" });
+      return;
+    }
+
+    updateNodeData(node.id, { sourceImage, status: "loading", error: null });
+    const technique = nodeData.technique as ImageEvasionTechnique;
+    const outputImage = await applyImageEvasion(sourceImage, technique, {
+      intensity: nodeData.intensity,
+      text: nodeData.hiddenText || undefined,
+    });
+    updateNodeData(node.id, { outputImage, status: "complete" });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[Workflow] ImageEvasion node ${node.id} failed:`, message);
     updateNodeData(node.id, { status: "error", error: message });
   }
 }

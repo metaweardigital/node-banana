@@ -4,8 +4,6 @@ import { useCallback, useRef, useState, useEffect, DragEvent, useMemo } from "re
 import {
   ReactFlow,
   Background,
-  Controls,
-  MiniMap,
   NodeTypes,
   EdgeTypes,
   Connection,
@@ -37,6 +35,7 @@ import {
   VideoStitchNode,
   EaseCurveNode,
   PromptEvasionNode,
+  ImageEvasionNode,
   TextLabelNode,
 } from "./nodes";
 
@@ -46,7 +45,6 @@ import { EditableEdge, ReferenceEdge } from "./edges";
 import { ConnectionDropMenu, MenuAction } from "./ConnectionDropMenu";
 import { MultiSelectToolbar } from "./MultiSelectToolbar";
 import { EdgeToolbar } from "./EdgeToolbar";
-import { GlobalImageHistory } from "./GlobalImageHistory";
 import { GroupBackgroundsPortal, GroupControlsOverlay } from "./GroupsOverlay";
 import { NodeType, NanoBananaNodeData } from "@/types";
 import { defaultNodeDimensions } from "@/store/utils/nodeDefaults";
@@ -77,6 +75,7 @@ const nodeTypes: NodeTypes = {
   easeCurve: EaseCurveNode,
   glbViewer: GLBViewerNode,
   promptEvasion: PromptEvasionNode,
+  imageEvasion: ImageEvasionNode,
   textLabel: TextLabelNode,
 };
 
@@ -145,6 +144,8 @@ const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: string[]
       return { inputs: ["3d"], outputs: ["image"] };
     case "promptEvasion":
       return { inputs: ["text"], outputs: ["text"] };
+    case "imageEvasion":
+      return { inputs: ["image"], outputs: ["image"] };
     default:
       return { inputs: [], outputs: [] };
   }
@@ -1111,6 +1112,7 @@ export function WorkflowCanvas() {
             easeCurve: { width: 340, height: 480 },
             glbViewer: { width: 360, height: 380 },
             promptEvasion: { width: 340, height: 320 },
+            imageEvasion: { width: 300, height: 140 },
             textLabel: { width: 320, height: 60 },
           };
           const dims = defaultDimensions[nodeType];
@@ -1451,7 +1453,7 @@ export function WorkflowCanvas() {
           try {
             const workflow = JSON.parse(e.target?.result as string) as WorkflowFile;
             if (workflow.version && workflow.nodes && workflow.edges) {
-              await loadWorkflow(workflow);
+              await loadWorkflow(workflow, undefined, { fromFileImport: true });
             } else {
               alert("Invalid workflow file format");
             }
@@ -1659,53 +1661,6 @@ export function WorkflowCanvas() {
         <GroupBackgroundsPortal />
         <GroupControlsOverlay />
         <Background color="#404040" gap={20} size={1} />
-        <Controls className="bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg [&>button]:bg-neutral-800 [&>button]:border-neutral-700 [&>button]:fill-neutral-300 [&>button:hover]:bg-neutral-700 [&>button:hover]:fill-neutral-100" />
-        <MiniMap
-          className="bg-neutral-800 border border-neutral-700 rounded-lg shadow-lg"
-          maskColor="rgba(0, 0, 0, 0.6)"
-          nodeColor={(node) => {
-            switch (node.type) {
-              case "imageInput":
-                return "#3b82f6";
-              case "audioInput":
-                return "#a78bfa";
-              case "annotation":
-                return "#8b5cf6";
-              case "prompt":
-                return "#f97316";
-              case "promptConstructor":
-                return "#f472b6";
-              case "nanoBanana":
-                return "#22c55e";
-              case "generateVideo":
-                return "#9333ea";
-              case "generate3d":
-                return "#fb923c";
-              case "llmGenerate":
-                return "#06b6d4";
-              case "splitGrid":
-                return "#f59e0b";
-              case "output":
-                return "#ef4444";
-              case "outputGallery":
-                return "#ec4899";
-              case "imageCompare":
-                return "#14b8a6";
-              case "videoStitch":
-                return "#f97316";
-              case "easeCurve":
-                return "#bef264"; // lime-300 (easy-peasy-ease)
-              case "glbViewer":
-                return "#38bdf8"; // sky-400 (3D viewport)
-              case "promptEvasion":
-                return "#f43f5e"; // rose-500 (evasion testing)
-              case "textLabel":
-                return "#e2e8f0"; // slate-200 (neutral text)
-              default:
-                return "#94a3b8";
-            }
-          }}
-        />
       </ReactFlow>
 
       {/* Connection drop menu */}
@@ -1725,8 +1680,6 @@ export function WorkflowCanvas() {
       {/* Edge toolbar */}
       <EdgeToolbar />
 
-      {/* Global image history */}
-      <GlobalImageHistory />
 
       {/* Chat toggle button - hidden for now */}
 
