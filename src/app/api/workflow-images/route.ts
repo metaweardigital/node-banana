@@ -80,8 +80,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Construct file path
-    const filename = `${imageId}.png`;
+    // Skip save if a file with this ID already exists (any extension)
+    // This prevents duplicates when save-generation already saved e.g. .jpg
+    const SAVE_EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
+    for (const existingExt of SAVE_EXTENSIONS) {
+      try {
+        await fs.access(path.join(targetFolder, `${imageId}.${existingExt}`));
+        logger.info('file.save', 'Image already exists, skipping save', { imageId, existingExt });
+        return NextResponse.json({ success: true, imageId, filePath: path.join(targetFolder, `${imageId}.${existingExt}`) });
+      } catch {
+        // Not found with this extension, continue
+      }
+    }
+
+    // Detect file extension from data URL MIME type (default to png)
+    const mimeMatch = imageData.match(/^data:image\/(\w+);base64,/);
+    const mimeExt = mimeMatch?.[1];
+    const ext = mimeExt === "jpeg" || mimeExt === "jpg" ? "jpg"
+      : mimeExt === "webp" ? "webp"
+      : "png";
+    const filename = `${imageId}.${ext}`;
     const filePath = path.join(targetFolder, filename);
 
     // Extract base64 data and convert to buffer
@@ -158,7 +176,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Construct file path - check folders in order based on hint
-    const filename = `${imageId}.png`;
+    const EXTENSIONS = ["png", "jpg", "jpeg", "webp"];
     const inputsFolder = path.join(workflowPath, IMAGES_FOLDER);
     const generationsFolder = path.join(workflowPath, "generations");
     const legacyFolder = path.join(workflowPath, LEGACY_IMAGES_FOLDER);
@@ -170,19 +188,22 @@ export async function GET(request: NextRequest) {
 
     let filePath: string | null = null;
 
-    // Check each folder in order
+    // Check each folder and extension combination
     for (const searchFolder of searchOrder) {
-      const candidatePath = path.join(searchFolder, filename);
-      try {
-        await fs.access(candidatePath);
-        filePath = candidatePath;
-        if (searchFolder === legacyFolder) {
-          logger.info('file.load', 'Found image in legacy .images folder', { filePath });
+      for (const ext of EXTENSIONS) {
+        const candidatePath = path.join(searchFolder, `${imageId}.${ext}`);
+        try {
+          await fs.access(candidatePath);
+          filePath = candidatePath;
+          if (searchFolder === legacyFolder) {
+            logger.info('file.load', 'Found image in legacy .images folder', { filePath });
+          }
+          break;
+        } catch {
+          // File not found with this extension, try next
         }
-        break;
-      } catch {
-        // File not found in this folder, try next
       }
+      if (filePath) break;
     }
 
     if (!filePath) {
@@ -202,9 +223,13 @@ export async function GET(request: NextRequest) {
     // Read the image file
     const buffer = await fs.readFile(filePath);
 
-    // Convert to base64 data URL
+    // Determine MIME type from actual file extension
+    const fileExt = path.extname(filePath).slice(1).toLowerCase();
+    const mimeType = fileExt === "jpg" || fileExt === "jpeg" ? "image/jpeg"
+      : fileExt === "webp" ? "image/webp"
+      : "image/png";
     const base64 = buffer.toString("base64");
-    const dataUrl = `data:image/png;base64,${base64}`;
+    const dataUrl = `data:${mimeType};base64,${base64}`;
 
     logger.info('file.load', 'Workflow image loaded successfully', {
       filePath,

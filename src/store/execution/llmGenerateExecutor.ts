@@ -54,6 +54,7 @@ export async function executeLlmGenerate(
   updateNodeData(node.id, {
     inputPrompt: text,
     inputImages: images,
+    inputImageRefs: undefined, // Clear stale refs — new images need new refs on next save
     status: "loading",
     error: null,
   });

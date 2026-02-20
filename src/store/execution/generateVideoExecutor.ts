@@ -79,6 +79,7 @@ export async function executeGenerateVideo(
 
   updateNodeData(node.id, {
     inputImages: images,
+    inputImageRefs: undefined, // Clear stale refs — new images need new refs on next save
     inputPrompt: text,
     status: "loading",
     error: null,
@@ -158,6 +159,7 @@ export async function executeGenerateVideo(
 
       updateNodeData(node.id, {
         outputVideo: outputContent,
+        outputVideoRef: videoId,
         status: "complete",
         error: null,
         videoHistory: updatedHistory,
@@ -195,7 +197,12 @@ export async function executeGenerateVideo(
                 const entryIndex = histCopy.findIndex((h) => h.id === videoId);
                 if (entryIndex !== -1) {
                   histCopy[entryIndex] = { ...histCopy[entryIndex], id: saveResult.imageId };
-                  updateNodeData(node.id, { videoHistory: histCopy });
+                  const refUpdate: Record<string, unknown> = { videoHistory: histCopy };
+                  // Update outputVideoRef if the renamed entry is the current one
+                  if (currentData.selectedVideoHistoryIndex === 0 && entryIndex === 0) {
+                    refUpdate.outputVideoRef = saveResult.imageId;
+                  }
+                  updateNodeData(node.id, refUpdate);
                 }
               }
             }

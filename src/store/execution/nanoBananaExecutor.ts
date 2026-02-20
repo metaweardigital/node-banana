@@ -73,6 +73,7 @@ export async function executeNanoBanana(
 
   updateNodeData(node.id, {
     inputImages: images,
+    inputImageRefs: undefined, // Clear stale refs — new images need new refs on next save
     inputPrompt: promptText,
     status: "loading",
     error: null,

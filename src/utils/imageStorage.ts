@@ -177,26 +177,13 @@ async function externalizeNodeImages(
         outputImage = null;
       }
 
-      // Handle input images array (these come from connected nodes, save to inputs if present)
-      // Skip if corresponding inputImageRef already exists
-      for (let i = 0; i < (d.inputImages?.length || 0); i++) {
-        const img = d.inputImages[i];
-        const existingRef = d.inputImageRefs?.[i];
-        if (existingRef && isBase64DataUrl(img)) {
-          inputImages.push(""); // Already has ref, just clear the base64
-        } else if (isBase64DataUrl(img)) {
-          const ref = await saveImageAndGetId(img, workflowPath, savedImageIds, "inputs");
-          inputImageRefs[i] = ref;
-          inputImages.push(""); // Empty placeholder
-        } else {
-          inputImages.push(img);
-        }
-      }
-
+      // Input images come from connected upstream nodes (their outputs are already
+      // saved in generations/). Don't duplicate them into inputs/ — they'll be
+      // re-populated from connections on next execution.
       newData = {
         ...d,
-        inputImages: inputImages.length > 0 && inputImages.every(i => i === "") ? [] : inputImages,
-        inputImageRefs: inputImageRefs.length > 0 ? inputImageRefs : undefined,
+        inputImages: [],
+        inputImageRefs: undefined,
         outputImage,
         outputImageRef,
       };
@@ -205,59 +192,22 @@ async function externalizeNodeImages(
 
     case "llmGenerate": {
       const d = data as import("@/types").LLMGenerateNodeData;
-      let inputImageRefs = d.inputImageRefs ? [...d.inputImageRefs] : [];
-      const inputImages: string[] = [];
-
-      // Handle input images array (save to inputs)
-      // Skip if corresponding inputImageRef already exists
-      for (let i = 0; i < (d.inputImages?.length || 0); i++) {
-        const img = d.inputImages[i];
-        const existingRef = d.inputImageRefs?.[i];
-        if (existingRef && isBase64DataUrl(img)) {
-          inputImages.push(""); // Already has ref, just clear the base64
-        } else if (isBase64DataUrl(img)) {
-          const ref = await saveImageAndGetId(img, workflowPath, savedImageIds, "inputs");
-          inputImageRefs[i] = ref;
-          inputImages.push(""); // Empty placeholder
-        } else {
-          inputImages.push(img);
-        }
-      }
-
+      // Input images come from connected upstream nodes — don't duplicate to inputs/
       newData = {
         ...d,
-        inputImages: inputImages.length > 0 && inputImages.every(i => i === "") ? [] : inputImages,
-        inputImageRefs: inputImageRefs.length > 0 ? inputImageRefs : undefined,
+        inputImages: [],
+        inputImageRefs: undefined,
       };
       break;
     }
 
     case "generateVideo": {
       const d = data as import("@/types").GenerateVideoNodeData;
-      let inputImageRefs = d.inputImageRefs ? [...d.inputImageRefs] : [];
-      const inputImages: string[] = [];
-
-      // Handle input images array (save to inputs)
-      // Skip if corresponding inputImageRef already exists
-      for (let i = 0; i < (d.inputImages?.length || 0); i++) {
-        const img = d.inputImages[i];
-        const existingRef = d.inputImageRefs?.[i];
-        if (existingRef && isBase64DataUrl(img)) {
-          inputImages.push(""); // Already has ref, just clear the base64
-        } else if (isBase64DataUrl(img)) {
-          const ref = await saveImageAndGetId(img, workflowPath, savedImageIds, "inputs");
-          inputImageRefs[i] = ref;
-          inputImages.push(""); // Empty placeholder
-        } else {
-          inputImages.push(img);
-        }
-      }
-
-      // Note: outputVideo is a video URL, not saved as an image
+      // Input images come from connected upstream nodes — don't duplicate to inputs/
       newData = {
         ...d,
-        inputImages: inputImages.length > 0 && inputImages.every(i => i === "") ? [] : inputImages,
-        inputImageRefs: inputImageRefs.length > 0 ? inputImageRefs : undefined,
+        inputImages: [],
+        inputImageRefs: undefined,
       };
       break;
     }
@@ -437,68 +387,38 @@ async function hydrateNodeImages(
     case "nanoBanana": {
       const d = data as import("@/types").NanoBananaNodeData;
       let outputImage = d.outputImage;
-      const inputImages = [...(d.inputImages || [])];
 
       if (d.outputImageRef && !d.outputImage) {
         outputImage = await loadImageById(d.outputImageRef, workflowPath, loadedImages, "generations");
       }
 
-      // Hydrate input images from refs
-      if (d.inputImageRefs && d.inputImageRefs.length > 0) {
-        for (let i = 0; i < d.inputImageRefs.length; i++) {
-          const ref = d.inputImageRefs[i];
-          if (ref) {
-            inputImages[i] = await loadImageById(ref, workflowPath, loadedImages, "inputs");
-          }
-        }
-      }
-
+      // inputImages are not persisted — they come from connected upstream nodes on execution
       newData = {
         ...d,
-        inputImages,
         outputImage,
       };
       break;
     }
 
     case "llmGenerate": {
-      const d = data as import("@/types").LLMGenerateNodeData;
-      const inputImages = [...(d.inputImages || [])];
-
-      // Hydrate input images from refs
-      if (d.inputImageRefs && d.inputImageRefs.length > 0) {
-        for (let i = 0; i < d.inputImageRefs.length; i++) {
-          const ref = d.inputImageRefs[i];
-          if (ref) {
-            inputImages[i] = await loadImageById(ref, workflowPath, loadedImages, "inputs");
-          }
-        }
-      }
-
-      newData = {
-        ...d,
-        inputImages,
-      };
+      // inputImages are not persisted — they come from connected upstream nodes on execution
+      newData = data;
       break;
     }
 
     case "generateVideo": {
       const d = data as import("@/types").GenerateVideoNodeData;
-      const inputImages = [...(d.inputImages || [])];
 
-      // Hydrate input images from refs
-      if (d.inputImageRefs && d.inputImageRefs.length > 0) {
-        for (let i = 0; i < d.inputImageRefs.length; i++) {
-          const ref = d.inputImageRefs[i];
-          if (ref) {
-            inputImages[i] = await loadImageById(ref, workflowPath, loadedImages, "inputs");
-          }
-        }
+      // Hydrate last output video from ref
+      let outputVideo = d.outputVideo;
+      if (d.outputVideoRef && !d.outputVideo) {
+        outputVideo = await loadVideoById(d.outputVideoRef, workflowPath);
       }
 
+      // inputImages are not persisted — they come from connected upstream nodes on execution
       newData = {
         ...d,
-        inputImages,
+        outputVideo,
       };
       break;
     }
@@ -568,4 +488,45 @@ async function loadImageById(
 
   loadedImages.set(imageId, result.image);
   return result.image;
+}
+
+/**
+ * Load a video by ID from the generations folder and convert to blob URL
+ */
+async function loadVideoById(
+  videoId: string,
+  workflowPath: string
+): Promise<string | null> {
+  try {
+    const generationsPath = `${workflowPath}/generations`;
+    const response = await fetch("/api/load-generation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        directoryPath: generationsPath,
+        imageId: videoId,
+      }),
+    });
+
+    const result = await response.json();
+    if (!result.success) {
+      console.log(`Video not found: ${videoId}`);
+      return null;
+    }
+
+    const dataUrl = result.video || result.image;
+    if (!dataUrl) return null;
+
+    // Convert data URL to blob URL to reduce memory pressure
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    } catch {
+      return dataUrl; // Fallback to data URL
+    }
+  } catch (error) {
+    console.warn("Error loading video:", error);
+    return null;
+  }
 }

@@ -64,6 +64,7 @@ export async function executeGenerate3D(
 
   updateNodeData(node.id, {
     inputImages: images,
+    inputImageRefs: undefined, // Clear stale refs — new images need new refs on next save
     inputPrompt: promptText,
     status: "loading",
     error: null,
