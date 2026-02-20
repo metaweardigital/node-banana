@@ -23,6 +23,7 @@ function ProviderIcon({ provider }: { provider: ProviderType }) {
     kie: { bg: "bg-orange-500/20", text: "text-orange-300" },
     wavespeed: { bg: "bg-purple-500/20", text: "text-purple-300" },
     xai: { bg: "bg-neutral-500/20", text: "text-neutral-200" },
+    bfl: { bg: "bg-green-500/20", text: "text-green-300" },
     comfyui: { bg: "bg-purple-500/20", text: "text-purple-300" },
     local: { bg: "bg-neutral-500/20", text: "text-neutral-300" },
   };
@@ -35,6 +36,7 @@ function ProviderIcon({ provider }: { provider: ProviderType }) {
     kie: "K",
     wavespeed: "W",
     xai: "X",
+    bfl: "B",
     comfyui: "C",
     local: "L",
   };
@@ -60,6 +62,7 @@ function getProviderDisplayName(provider: ProviderType): string {
     kie: "Kie.ai",
     wavespeed: "WaveSpeed",
     xai: "xAI",
+    bfl: "BFL",
     comfyui: "ComfyUI",
     local: "Local LLM",
   };
@@ -85,6 +88,9 @@ function getModelUrl(provider: ProviderType, modelId: string): string | null {
   }
   if (provider === "xai") {
     return `https://docs.x.ai/developers/model-capabilities`;
+  }
+  if (provider === "bfl") {
+    return `https://docs.bfl.ai`;
   }
   return null;
 }

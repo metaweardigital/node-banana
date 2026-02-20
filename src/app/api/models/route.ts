@@ -345,6 +345,80 @@ const XAI_MODELS: ProviderModel[] = [
   },
 ];
 
+// BFL (Black Forest Labs) FLUX models (hardcoded - direct API integration)
+const BFL_MODELS: ProviderModel[] = [
+  {
+    id: "flux-2-max",
+    name: "FLUX.2 Max",
+    description: "Highest quality FLUX model with grounding search. Up to 4MP resolution, photorealistic detail.",
+    provider: "bfl",
+    capabilities: ["text-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.07, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/flux_2/flux2_text_to_image",
+  },
+  {
+    id: "flux-2-pro",
+    name: "FLUX.2 Pro",
+    description: "Production-grade FLUX model. Fast turnaround with multi-reference image editing support.",
+    provider: "bfl",
+    capabilities: ["text-to-image", "image-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.03, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/flux_2/flux2_text_to_image",
+  },
+  {
+    id: "flux-2-flex",
+    name: "FLUX.2 Flex",
+    description: "Adjustable steps and guidance. Supports multi-reference editing with up to 8 input images.",
+    provider: "bfl",
+    capabilities: ["text-to-image", "image-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.05, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/flux_2/flux2_text_to_image",
+  },
+  {
+    id: "flux-kontext-max",
+    name: "FLUX Kontext Max",
+    description: "Premium quality image editing and generation. Character consistency, text replacement, style transfer.",
+    provider: "bfl",
+    capabilities: ["text-to-image", "image-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.08, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/kontext/kontext_overview",
+  },
+  {
+    id: "flux-kontext-pro",
+    name: "FLUX Kontext Pro",
+    description: "Fast production image editing. 5-6 second generation with strong prompt adherence.",
+    provider: "bfl",
+    capabilities: ["text-to-image", "image-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.04, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/kontext/kontext_overview",
+  },
+  {
+    id: "flux-pro-1.1-ultra",
+    name: "FLUX 1.1 Pro Ultra",
+    description: "Up to 4MP resolution output. Raw mode available for less processed aesthetic.",
+    provider: "bfl",
+    capabilities: ["text-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.06, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/flux_models/flux_1_1_pro",
+  },
+  {
+    id: "flux-pro-1.1",
+    name: "FLUX 1.1 Pro",
+    description: "Standard FLUX 1.1 Pro text-to-image generation.",
+    provider: "bfl",
+    capabilities: ["text-to-image"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.04, currency: "USD" },
+    pageUrl: "https://docs.bfl.ai/flux_models/flux_1_1_pro",
+  },
+];
+
 // Gemini image models (hardcoded - these don't come from an external API)
 const GEMINI_IMAGE_MODELS: ProviderModel[] = [
   {
@@ -897,6 +971,7 @@ export async function GET(
   const kieKey = request.headers.get("X-Kie-Key") || process.env.KIE_API_KEY || null;
   const wavespeedKey = request.headers.get("X-WaveSpeed-Key") || process.env.WAVESPEED_API_KEY || null;
   const xaiKey = request.headers.get("X-XAI-Key") || process.env.XAI_API_KEY || null;
+  const bflKey = request.headers.get("X-BFL-Key") || process.env.BFL_API_KEY || null;
   const comfyuiServer = request.headers.get("X-ComfyUI-Server") || null;
 
   // Determine which providers to fetch from (excluding gemini/kie - handled separately as hardcoded)
@@ -904,6 +979,7 @@ export async function GET(
   let includeGemini = false;
   let includeKie = false;
   let includeXai = false;
+  let includeBfl = false;
   let includeComfyUI = false;
 
   if (providerFilter) {
@@ -916,6 +992,9 @@ export async function GET(
     } else if (providerFilter === "xai") {
       // Only xAI requested - no external API calls needed (hardcoded models)
       includeXai = true;
+    } else if (providerFilter === "bfl") {
+      // Only BFL requested - no external API calls needed (hardcoded models)
+      includeBfl = true;
     } else if (providerFilter === "comfyui") {
       if (comfyuiServer) {
         includeComfyUI = true;
@@ -954,6 +1033,7 @@ export async function GET(
     includeGemini = true; // Gemini always available
     includeKie = kieKey ? true : false; // Kie only if API key is configured
     includeXai = xaiKey ? true : false; // xAI only if API key is configured
+    includeBfl = bflKey ? true : false; // BFL only if API key is configured
     if (comfyuiServer) {
       includeComfyUI = true;
       providersToFetch.push("comfyui");
@@ -970,7 +1050,7 @@ export async function GET(
   }
 
   // Gemini and Kie are always available (with key for Kie), so we don't fail if no external providers
-  if (providersToFetch.length === 0 && !includeGemini && !includeKie && !includeXai && !includeComfyUI) {
+  if (providersToFetch.length === 0 && !includeGemini && !includeKie && !includeXai && !includeBfl && !includeComfyUI) {
     return NextResponse.json<ModelsErrorResponse>(
       {
         success: false,
@@ -1013,6 +1093,21 @@ export async function GET(
     providerResults["xai"] = {
       success: true,
       count: xaiModels.length,
+      cached: true,
+    };
+    anyFromCache = true;
+  }
+
+  // Add BFL models if included (hardcoded, no API call needed)
+  if (includeBfl) {
+    let bflModels = BFL_MODELS;
+    if (searchQuery) {
+      bflModels = filterModelsBySearch(bflModels, searchQuery);
+    }
+    allModels.push(...bflModels);
+    providerResults["bfl"] = {
+      success: true,
+      count: bflModels.length,
       cached: true,
     };
     anyFromCache = true;

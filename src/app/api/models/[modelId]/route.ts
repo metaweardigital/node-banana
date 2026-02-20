@@ -560,6 +560,102 @@ function getXaiSchema(modelId: string): ExtractedSchema {
 }
 
 /**
+ * Get hardcoded schema for BFL (Black Forest Labs) FLUX models
+ */
+function getBflSchema(modelId: string): ExtractedSchema {
+  // Common parameters for FLUX.2 text-to-image models
+  const flux2BaseParams: ModelParameter[] = [
+    { name: "width", type: "integer", description: "Output width in pixels (multiple of 16)", minimum: 64, maximum: 2048, default: 1024 },
+    { name: "height", type: "integer", description: "Output height in pixels (multiple of 16)", minimum: 64, maximum: 2048, default: 1024 },
+    { name: "seed", type: "integer", description: "Random seed for reproducibility", minimum: 0 },
+    { name: "safety_tolerance", type: "integer", description: "Safety filter tolerance (0=strict, 5=permissive)", minimum: 0, maximum: 5, default: 2 },
+    { name: "output_format", type: "string", description: "Output image format", enum: ["jpeg", "png"], default: "jpeg" },
+    { name: "prompt_upsampling", type: "boolean", description: "Enhance prompt automatically", default: true },
+  ];
+
+  const textOnlyInputs: ModelInput[] = [
+    { name: "prompt", type: "text", required: true, label: "Prompt" },
+  ];
+
+  const textAndImageInputs: ModelInput[] = [
+    { name: "prompt", type: "text", required: true, label: "Prompt" },
+    { name: "input_image", type: "image", required: false, label: "Input Image" },
+  ];
+
+  // FLUX.2 Pro/Flex support up to 8 reference images for multi-reference editing
+  const multiImageInputs: ModelInput[] = [
+    { name: "prompt", type: "text", required: true, label: "Prompt" },
+    { name: "input_image", type: "image", required: false, label: "Image 1" },
+    { name: "input_image_2", type: "image", required: false, label: "Image 2" },
+    { name: "input_image_3", type: "image", required: false, label: "Image 3" },
+    { name: "input_image_4", type: "image", required: false, label: "Image 4" },
+    { name: "input_image_5", type: "image", required: false, label: "Image 5" },
+    { name: "input_image_6", type: "image", required: false, label: "Image 6" },
+    { name: "input_image_7", type: "image", required: false, label: "Image 7" },
+    { name: "input_image_8", type: "image", required: false, label: "Image 8" },
+  ];
+
+  const schemas: Record<string, ExtractedSchema> = {
+    "flux-2-max": {
+      parameters: flux2BaseParams,
+      inputs: textOnlyInputs,
+    },
+    "flux-2-pro": {
+      parameters: flux2BaseParams,
+      inputs: multiImageInputs,
+    },
+    "flux-2-flex": {
+      parameters: [
+        ...flux2BaseParams,
+        { name: "steps", type: "integer", description: "Number of inference steps", minimum: 1, maximum: 50, default: 50 },
+        { name: "guidance", type: "number", description: "Prompt adherence strength", minimum: 1.5, maximum: 10, default: 5 },
+      ],
+      inputs: multiImageInputs,
+    },
+    "flux-kontext-max": {
+      parameters: [
+        { name: "seed", type: "integer", description: "Random seed for reproducibility", minimum: 0 },
+        { name: "safety_tolerance", type: "integer", description: "Safety filter tolerance (0=strict, 5=permissive)", minimum: 0, maximum: 5, default: 2 },
+        { name: "output_format", type: "string", description: "Output image format", enum: ["jpeg", "png"], default: "jpeg" },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"], default: "1:1" },
+      ],
+      inputs: textAndImageInputs,
+    },
+    "flux-kontext-pro": {
+      parameters: [
+        { name: "seed", type: "integer", description: "Random seed for reproducibility", minimum: 0 },
+        { name: "safety_tolerance", type: "integer", description: "Safety filter tolerance (0=strict, 5=permissive)", minimum: 0, maximum: 5, default: 2 },
+        { name: "output_format", type: "string", description: "Output image format", enum: ["jpeg", "png"], default: "jpeg" },
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["1:1", "4:3", "3:4", "16:9", "9:16", "3:2", "2:3"], default: "1:1" },
+      ],
+      inputs: textAndImageInputs,
+    },
+    "flux-pro-1.1-ultra": {
+      parameters: [
+        { name: "width", type: "integer", description: "Output width in pixels", minimum: 64, maximum: 2048, default: 1024 },
+        { name: "height", type: "integer", description: "Output height in pixels", minimum: 64, maximum: 2048, default: 1024 },
+        { name: "seed", type: "integer", description: "Random seed for reproducibility", minimum: 0 },
+        { name: "safety_tolerance", type: "integer", description: "Safety filter tolerance (0=strict, 5=permissive)", minimum: 0, maximum: 5, default: 2 },
+        { name: "output_format", type: "string", description: "Output image format", enum: ["jpeg", "png"], default: "jpeg" },
+      ],
+      inputs: textOnlyInputs,
+    },
+    "flux-pro-1.1": {
+      parameters: [
+        { name: "width", type: "integer", description: "Output width in pixels", minimum: 64, maximum: 2048, default: 1024 },
+        { name: "height", type: "integer", description: "Output height in pixels", minimum: 64, maximum: 2048, default: 1024 },
+        { name: "seed", type: "integer", description: "Random seed for reproducibility", minimum: 0 },
+        { name: "safety_tolerance", type: "integer", description: "Safety filter tolerance (0=strict, 5=permissive)", minimum: 0, maximum: 5, default: 2 },
+        { name: "output_format", type: "string", description: "Output image format", enum: ["jpeg", "png"], default: "jpeg" },
+      ],
+      inputs: textOnlyInputs,
+    },
+  };
+
+  return schemas[modelId] || { parameters: [], inputs: [] };
+}
+
+/**
  * Get hardcoded schema for Kie.ai models
  * Kie.ai doesn't have a schema discovery API, so we define these manually
  */
@@ -1093,7 +1189,7 @@ export async function GET(
   const decodedModelId = decodeURIComponent(modelId);
   const provider = request.nextUrl.searchParams.get("provider") as ProviderType | null;
 
-  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "kie" && provider !== "wavespeed" && provider !== "xai" && provider !== "comfyui")) {
+  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "kie" && provider !== "wavespeed" && provider !== "xai" && provider !== "bfl" && provider !== "comfyui")) {
     return NextResponse.json<SchemaErrorResponse>(
       {
         success: false,
@@ -1136,6 +1232,8 @@ export async function GET(
     } else if (provider === "xai") {
       // xAI uses hardcoded schemas
       result = getXaiSchema(decodedModelId);
+    } else if (provider === "bfl") {
+      result = getBflSchema(decodedModelId);
     } else if (provider === "kie") {
       // Kie.ai uses hardcoded schemas (no schema discovery API)
       result = getKieSchema(decodedModelId);

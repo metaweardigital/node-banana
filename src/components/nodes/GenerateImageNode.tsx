@@ -15,7 +15,7 @@ import { getImageDimensions, calculateNodeSizePreservingHeight } from "@/utils/n
 
 // Provider badge component - shows provider icon for all providers
 function ProviderBadge({ provider }: { provider: ProviderType }) {
-  const providerName = provider === "gemini" ? "Gemini" : provider === "replicate" ? "Replicate" : provider === "kie" ? "Kie.ai" : provider === "wavespeed" ? "WaveSpeed" : provider === "comfyui" ? "ComfyUI" : provider === "xai" ? "xAI" : "fal.ai";
+  const providerName = provider === "gemini" ? "Gemini" : provider === "replicate" ? "Replicate" : provider === "kie" ? "Kie.ai" : provider === "wavespeed" ? "WaveSpeed" : provider === "comfyui" ? "ComfyUI" : provider === "xai" ? "xAI" : provider === "bfl" ? "BFL" : "fal.ai";
 
   return (
     <span className="text-neutral-500 shrink-0" title={providerName}>
@@ -49,6 +49,8 @@ function ProviderBadge({ provider }: { provider: ProviderType }) {
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
           <path d="M13.982 10.622L20.54 3h-1.554l-5.693 6.618L8.745 3H3.5l6.876 10.007L3.5 21h1.554l6.012-6.989L15.868 21h5.245l-7.131-10.378zm-2.128 2.474l-.697-.997L5.653 4.16h2.386l4.474 6.4.697.996 5.815 8.318h-2.387l-4.745-6.787z" />
         </svg>
+      ) : provider === "bfl" ? (
+        <span className="w-4 h-4 flex items-center justify-center text-[10px] font-bold">BFL</span>
       ) : (
         <svg className="w-4 h-4" viewBox="0 0 1855 1855" fill="currentColor">
           <path fillRule="evenodd" clipRule="evenodd" d="M1181.65 78C1212.05 78 1236.42 101.947 1239.32 131.261C1265.25 392.744 1480.07 600.836 1750.02 625.948C1780.28 628.764 1805 652.366 1805 681.816V1174.18C1805 1203.63 1780.28 1227.24 1750.02 1230.05C1480.07 1255.16 1265.25 1463.26 1239.32 1724.74C1236.42 1754.05 1212.05 1778 1181.65 1778H673.354C642.951 1778 618.585 1754.05 615.678 1724.74C589.754 1463.26 374.927 1255.16 104.984 1230.05C74.7212 1227.24 50 1203.63 50 1174.18V681.816C50 652.366 74.7213 628.764 104.984 625.948C374.927 600.836 589.754 392.744 615.678 131.261C618.585 101.946 642.951 78 673.353 78H1181.65ZM402.377 926.561C402.377 1209.41 638.826 1438.71 930.501 1438.71C1222.18 1438.71 1458.63 1209.41 1458.63 926.561C1458.63 643.709 1222.18 414.412 930.501 414.412C638.826 414.412 402.377 643.709 402.377 926.561Z" />
@@ -81,7 +83,7 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   const generationsPath = useWorkflowStore((state) => state.generationsPath);
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, xaiApiKey, comfyuiServerUrl, replicateEnabled, kieEnabled, xaiEnabled, comfyuiEnabled } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, xaiApiKey, bflApiKey, comfyuiServerUrl, replicateEnabled, kieEnabled, xaiEnabled, bflEnabled, comfyuiEnabled } = useProviderApiKeys();
   const [isLoadingCarouselImage, setIsLoadingCarouselImage] = useState(false);
   const [externalModels, setExternalModels] = useState<ProviderModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -110,12 +112,16 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
     if (xaiEnabled && xaiApiKey) {
       providers.push({ id: "xai", name: "xAI" });
     }
+    // Add BFL if configured
+    if (bflEnabled && bflApiKey) {
+      providers.push({ id: "bfl", name: "BFL" });
+    }
     // Add ComfyUI if configured
     if (comfyuiEnabled && comfyuiServerUrl) {
       providers.push({ id: "comfyui", name: "ComfyUI" });
     }
     return providers;
-  }, [replicateEnabled, replicateApiKey, kieEnabled, kieApiKey, xaiEnabled, xaiApiKey, comfyuiEnabled, comfyuiServerUrl]);
+  }, [replicateEnabled, replicateApiKey, kieEnabled, kieApiKey, xaiEnabled, xaiApiKey, bflEnabled, bflApiKey, comfyuiEnabled, comfyuiServerUrl]);
 
   // Check if external providers (Replicate/Fal) are enabled
   // fal.ai is always available (works without key but rate limited)
@@ -164,6 +170,9 @@ export function GenerateImageNode({ id, data, selected }: NodeProps<NanoBananaNo
       }
       if (xaiApiKey) {
         headers["X-XAI-Key"] = xaiApiKey;
+      }
+      if (bflApiKey) {
+        headers["X-BFL-Key"] = bflApiKey;
       }
       if (comfyuiServerUrl) {
         headers["X-ComfyUI-Server"] = comfyuiServerUrl;

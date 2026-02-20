@@ -137,7 +137,7 @@ export function ModelSearchDialog({
     trackModelUsage,
   } = useWorkflowStore();
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, comfyuiServerUrl } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, bflApiKey, comfyuiServerUrl } = useProviderApiKeys();
   const { screenToFlowPosition } = useReactFlow();
 
   // State
@@ -240,6 +240,9 @@ export function ModelSearchDialog({
       if (xaiApiKey) {
         headers["X-XAI-Key"] = xaiApiKey;
       }
+      if (bflApiKey) {
+        headers["X-BFL-Key"] = bflApiKey;
+      }
       if (comfyuiServerUrl) {
         headers["X-ComfyUI-Server"] = comfyuiServerUrl;
       }
@@ -276,7 +279,7 @@ export function ModelSearchDialog({
         setIsLoading(false);
       }
     }
-  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, comfyuiServerUrl]);
+  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, bflApiKey, comfyuiServerUrl]);
 
   // Fetch models when filters change
   useEffect(() => {
@@ -399,6 +402,8 @@ export function ModelSearchDialog({
         return "bg-purple-500/20 text-purple-300";
       case "xai":
         return "bg-neutral-500/20 text-neutral-200";
+      case "bfl":
+        return "bg-green-500/20 text-green-300";
       default:
         return "bg-neutral-500/20 text-neutral-300";
     }
@@ -419,6 +424,8 @@ export function ModelSearchDialog({
         return "WaveSpeed";
       case "xai":
         return "xAI";
+      case "bfl":
+        return "BFL";
       default:
         return provider;
     }
@@ -482,6 +489,8 @@ export function ModelSearchDialog({
         return `https://wavespeed.ai`;
       case "xai":
         return `https://docs.x.ai/developers/model-capabilities`;
+      case "bfl":
+        return `https://docs.bfl.ai`;
       default:
         return null;
     }
@@ -676,6 +685,17 @@ export function ModelSearchDialog({
                 }`}
               >
                 <XaiIcon />
+              </button>
+              <button
+                onClick={() => setProviderFilter("bfl")}
+                title="BFL (Black Forest Labs)"
+                className={`p-2 rounded transition-colors ${
+                  providerFilter === "bfl"
+                    ? "bg-green-500/20 text-green-300"
+                    : "text-neutral-400 hover:text-green-300 hover:bg-neutral-700"
+                }`}
+              >
+                <span className="text-[10px] font-bold leading-none">BFL</span>
               </button>
               <button
                 onClick={() => setProviderFilter("comfyui")}

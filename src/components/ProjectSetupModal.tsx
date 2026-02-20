@@ -78,6 +78,8 @@ const getProviderIcon = (provider: ProviderType) => {
       return <WaveSpeedIcon />;
     case "xai":
       return <XaiIcon />;
+    case "bfl":
+      return <span className="text-[10px] font-bold">BFL</span>;
     case "comfyui":
       return (
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -143,6 +145,7 @@ export function ProjectSetupModal({
     kie: false,
     wavespeed: false,
     xai: false,
+    bfl: false,
     comfyui: false,
     local: false,
   });
@@ -154,6 +157,7 @@ export function ProjectSetupModal({
     kie: false,
     wavespeed: false,
     xai: false,
+    bfl: false,
     comfyui: false,
     local: false,
   });
@@ -187,7 +191,7 @@ export function ProjectSetupModal({
 
       // Sync local providers state
       setLocalProviders(providerSettings);
-      setShowApiKey({ gemini: false, openai: false, replicate: false, fal: false, kie: false, wavespeed: false, xai: false, comfyui: false, local: false });
+      setShowApiKey({ gemini: false, openai: false, replicate: false, fal: false, kie: false, wavespeed: false, xai: false, bfl: false, comfyui: false, local: false });
       setComfyuiTestStatus("idle");
       setLocalLlmTestStatus("idle");
       // Initialize override as active if user already has a key set
@@ -199,6 +203,7 @@ export function ProjectSetupModal({
         kie: !!providerSettings.providers.kie?.apiKey,
         wavespeed: !!providerSettings.providers.wavespeed?.apiKey,
         xai: !!providerSettings.providers.xai?.apiKey,
+        bfl: !!providerSettings.providers.bfl?.apiKey,
         comfyui: false,
         local: false,
       });
@@ -303,7 +308,7 @@ export function ProjectSetupModal({
 
   const handleSaveProviders = () => {
     // Save each provider's settings
-    const providerIds: ProviderType[] = ["gemini", "openai", "replicate", "fal", "kie", "wavespeed", "xai", "comfyui", "local"];
+    const providerIds: ProviderType[] = ["gemini", "openai", "replicate", "fal", "kie", "wavespeed", "xai", "bfl", "comfyui", "local"];
     for (const providerId of providerIds) {
       const local = localProviders.providers[providerId];
       const current = providerSettings.providers[providerId];
@@ -827,6 +832,54 @@ export function ProjectSetupModal({
                         onClick={() => {
                           setOverrideActive((prev) => ({ ...prev, xai: false }));
                           updateLocalProvider("xai", { apiKey: null });
+                        }}
+                        className="text-xs text-neutral-500 hover:text-neutral-300"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* BFL (Black Forest Labs) Provider */}
+            <div className="p-3 bg-neutral-900 rounded-lg border border-neutral-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-neutral-100">Black Forest Labs</span>
+                {envStatus?.bfl && !overrideActive.bfl ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-green-400">Configured via .env</span>
+                    <button
+                      type="button"
+                      onClick={() => setOverrideActive((prev) => ({ ...prev, bfl: true }))}
+                      className="px-2 py-1 text-xs text-neutral-400 hover:text-neutral-200 transition-colors"
+                    >
+                      Override
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showApiKey.bfl ? "text" : "password"}
+                      value={localProviders.providers.bfl?.apiKey || ""}
+                      onChange={(e) => updateLocalProvider("bfl", { apiKey: e.target.value || null })}
+                      placeholder="..."
+                      className="w-48 px-2 py-1 bg-neutral-800 border border-neutral-600 rounded text-neutral-100 text-xs focus:outline-none focus:border-neutral-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey((prev) => ({ ...prev, bfl: !prev.bfl }))}
+                      className="text-xs text-neutral-400 hover:text-neutral-200"
+                    >
+                      {showApiKey.bfl ? "Hide" : "Show"}
+                    </button>
+                    {envStatus?.bfl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOverrideActive((prev) => ({ ...prev, bfl: false }));
+                          updateLocalProvider("bfl", { apiKey: null });
                         }}
                         className="text-xs text-neutral-500 hover:text-neutral-300"
                       >
