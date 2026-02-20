@@ -35,6 +35,18 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
 describe("PromptNode", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock localStorage for PromptEditorModal font size persistence
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: vi.fn(() => null),
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+        clear: vi.fn(),
+        length: 0,
+        key: vi.fn(),
+      },
+      writable: true,
+    });
   });
 
   const defaultProps = {

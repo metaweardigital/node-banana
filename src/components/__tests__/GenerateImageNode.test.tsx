@@ -308,7 +308,7 @@ describe("GenerateImageNode", () => {
       );
 
       expect(screen.getByText("Generation failed")).toBeInTheDocument();
-      expect(screen.getByText("See toast for details")).toBeInTheDocument();
+      expect(screen.getByText("Click to dismiss")).toBeInTheDocument();
     });
 
     it("should show 'Failed' when error message is null", () => {

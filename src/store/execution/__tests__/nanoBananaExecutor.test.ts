@@ -72,6 +72,7 @@ function makeCtx(
     saveDirectoryPath: null,
     trackSaveGeneration: vi.fn(),
     appendOutputGalleryImage: vi.fn(),
+    addActivityLog: vi.fn(),
     get: vi.fn().mockReturnValue({
       edges: [],
       nodes: [node],

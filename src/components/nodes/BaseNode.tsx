@@ -455,7 +455,7 @@ export function BaseNode({
               ) : (
                 <button
                   onClick={onRun}
-                  disabled={isExecuting}
+                  disabled={isCurrentlyExecuting}
                   className="nodrag nopan p-0.5 rounded transition-all duration-200 ease-in-out text-neutral-500 group-hover:text-neutral-200 border border-neutral-600 flex items-center overflow-hidden group-hover:pr-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Run this node"
                 >

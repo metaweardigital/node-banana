@@ -86,6 +86,9 @@ const createDefaultState = (overrides = {}) => ({
   modelSearchOpen: false,
   modelSearchProvider: null,
   addNode: mockAddNode,
+  activityLog: [],
+  activityLogOpen: false,
+  setActivityLogOpen: vi.fn(),
   ...overrides,
 });
 

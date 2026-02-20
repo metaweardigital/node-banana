@@ -111,7 +111,7 @@ export function Header() {
       try {
         const workflow = JSON.parse(event.target?.result as string) as WorkflowFile;
         if (workflow.version && workflow.nodes && workflow.edges) {
-          await loadWorkflow(workflow);
+          await loadWorkflow(workflow, undefined, { fromFileImport: true });
         } else {
           alert("Invalid workflow file format");
         }

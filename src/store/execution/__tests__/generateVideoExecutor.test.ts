@@ -248,8 +248,8 @@ describe("executeGenerateVideo", () => {
     expect(body.prompt).toBe("stored video prompt");
   });
 
-  it("should add to video history with 50-item limit", async () => {
-    const existingHistory = Array.from({ length: 50 }, (_, i) => ({
+  it("should add to video history with 15-item limit", async () => {
+    const existingHistory = Array.from({ length: 20 }, (_, i) => ({
       id: `old-${i}`,
       timestamp: i,
       prompt: `old-${i}`,
@@ -271,6 +271,6 @@ describe("executeGenerateVideo", () => {
       (c: unknown[]) => (c[1] as Record<string, unknown>).status === "complete"
     );
     const videoHistory = (completeCall![1] as Record<string, unknown>).videoHistory as unknown[];
-    expect(videoHistory.length).toBe(50); // capped at 50
+    expect(videoHistory.length).toBe(15); // capped at 15
   });
 });
