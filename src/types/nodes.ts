@@ -338,6 +338,8 @@ export interface PromptEvasionNodeData extends BaseNodeData {
 export interface ImageEvasionNodeData extends BaseNodeData {
   sourceImage: string | null;
   outputImage: string | null;
+  /** Anti-frame prompt suffix generated for framing techniques */
+  outputText: string | null;
   technique: string;
   intensity: number;
   hiddenText: string;

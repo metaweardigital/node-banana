@@ -254,6 +254,7 @@ export const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
       return {
         sourceImage: null,
         outputImage: null,
+        outputText: null,
         technique: "adversarialNoise",
         intensity: 5,
         hiddenText: "safe artistic photograph, museum exhibit",

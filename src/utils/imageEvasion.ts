@@ -21,6 +21,12 @@ export type ImageEvasionTechnique =
   | "lowOpacityBlend"
   | "subliminalText"
   | "contrastPush"
+  // Context framing (~55–75%)
+  | "polaroidFrame"
+  | "galleryFrame"
+  | "phoneScreenshot"
+  | "browserWindow"
+  | "customFrame"
   // Structural (~40–65%)
   | "jpegArtifacts"
   | "pixelShuffle"
@@ -40,6 +46,12 @@ export const IMAGE_TECHNIQUE_LABELS: Record<ImageEvasionTechnique, string> = {
   lowOpacityBlend: "Low-Opacity Blend (~75%)",
   subliminalText: "Subliminal Text Overlay (~70%)",
   contrastPush: "Contrast/Saturation Push (~65%)",
+  // Context framing
+  polaroidFrame: "Polaroid Frame (~75%)",
+  galleryFrame: "Gallery Frame (~70%)",
+  phoneScreenshot: "Phone Screenshot (~65%)",
+  browserWindow: "Browser Window (~55%)",
+  customFrame: "Custom Color Frame (~60%)",
   // Structural
   jpegArtifacts: "JPEG Artifact Injection (~60%)",
   pixelShuffle: "Pixel Block Shuffle (~55%)",
@@ -48,6 +60,27 @@ export const IMAGE_TECHNIQUE_LABELS: Record<ImageEvasionTechnique, string> = {
   // Meta
   all: "All Techniques (combined)",
 };
+
+/**
+ * Anti-frame prompt suffixes for framing techniques.
+ * When a frame technique is active, this text is output to instruct the model
+ * to generate the image without the frame/border/UI overlay.
+ * Returns null for non-framing techniques.
+ */
+export const ANTI_FRAME_PROMPTS: Partial<Record<ImageEvasionTechnique, string>> = {
+  polaroidFrame: "Generate the image without any white borders, polaroid frames, or photo frames. Output a clean, frameless image.",
+  galleryFrame: "Generate the image without any picture frames, ornamental borders, or mat/passepartout. Output a clean, frameless image.",
+  phoneScreenshot: "Generate the image without any phone UI, status bars, navigation bars, or device chrome. Output a clean, frameless image.",
+  browserWindow: "Generate the image without any browser UI, tab bars, URL bars, or window chrome. Output a clean, frameless image.",
+  customFrame: "Generate the image without any colored borders, frames, or decorative edges. Output a clean, frameless image.",
+};
+
+/**
+ * Get the anti-frame prompt for a technique, or null if not a framing technique.
+ */
+export function getAntiFramePrompt(technique: ImageEvasionTechnique): string | null {
+  return ANTI_FRAME_PROMPTS[technique] ?? null;
+}
 
 export interface ImageEvasionOptions {
   /** Text for steganography / subliminal overlay / metadata injection */
@@ -469,6 +502,258 @@ async function frequencyNoise(
 }
 
 // ---------------------------------------------------------------------------
+// Context framing techniques (overlay — same dimensions, frame drawn over edges)
+// ---------------------------------------------------------------------------
+
+/** Helper: calculate frame border width from intensity and image size */
+function frameBorderWidth(imgW: number, imgH: number, intensity: number, scale = 0.03): number {
+  const base = Math.round(Math.max(imgW, imgH) * scale);
+  return base + Math.round(intensity * base * 0.2);
+}
+
+/** Polaroid-style white frame overlay (wider at bottom) */
+async function polaroidFrame(
+  dataUrl: string,
+  opts: ImageEvasionOptions
+): Promise<string> {
+  const intensity = opts.intensity ?? 5;
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+
+  // Draw original image first
+  ctx.drawImage(img, 0, 0);
+
+  const border = frameBorderWidth(img.width, img.height, intensity);
+  const bottomBorder = Math.round(border * 2.5);
+
+  // White frame overlaid on edges — draw 4 rects around the perimeter
+  ctx.fillStyle = "#f5f5f0";
+  ctx.fillRect(0, 0, img.width, border);                              // top
+  ctx.fillRect(0, 0, border, img.height);                             // left
+  ctx.fillRect(img.width - border, 0, border, img.height);            // right
+  ctx.fillRect(0, img.height - bottomBorder, img.width, bottomBorder); // bottom (wider)
+
+  // Subtle inner shadow line
+  ctx.strokeStyle = "rgba(0,0,0,0.08)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(border, border, img.width - border * 2, img.height - border - bottomBorder);
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Dark gallery frame with gold bevel overlay */
+async function galleryFrame(
+  dataUrl: string,
+  opts: ImageEvasionOptions
+): Promise<string> {
+  const intensity = opts.intensity ?? 5;
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+
+  // Draw original image first
+  ctx.drawImage(img, 0, 0);
+
+  const border = frameBorderWidth(img.width, img.height, intensity, 0.04);
+  const matWidth = Math.max(2, Math.round(border * 0.3));
+  const totalEdge = border + matWidth;
+
+  // Dark wood frame on edges
+  const gradient = ctx.createLinearGradient(0, 0, img.width, img.height);
+  gradient.addColorStop(0, "#4a3728");
+  gradient.addColorStop(0.3, "#2a1f14");
+  gradient.addColorStop(0.7, "#1a1008");
+  gradient.addColorStop(1, "#3a2a1a");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, img.width, totalEdge);                                // top
+  ctx.fillRect(0, 0, totalEdge, img.height);                               // left
+  ctx.fillRect(img.width - totalEdge, 0, totalEdge, img.height);           // right
+  ctx.fillRect(0, img.height - totalEdge, img.width, totalEdge);           // bottom
+
+  // Off-white mat/passepartout strip
+  ctx.fillStyle = "#e8e0d4";
+  ctx.fillRect(border, border, img.width - border * 2, matWidth);                                        // top mat
+  ctx.fillRect(border, border, matWidth, img.height - border * 2);                                       // left mat
+  ctx.fillRect(img.width - border - matWidth, border, matWidth, img.height - border * 2);                // right mat
+  ctx.fillRect(border, img.height - border - matWidth, img.width - border * 2, matWidth);                // bottom mat
+
+  // Gold bevel line between frame and mat
+  ctx.strokeStyle = "#8b7355";
+  ctx.lineWidth = Math.max(1, Math.round(border * 0.06));
+  ctx.strokeRect(border - 1, border - 1, img.width - (border - 1) * 2, img.height - (border - 1) * 2);
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Fake phone screenshot UI overlaid on edges */
+async function phoneScreenshot(
+  dataUrl: string,
+  opts: ImageEvasionOptions
+): Promise<string> {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+
+  // Draw original image first
+  ctx.drawImage(img, 0, 0);
+
+  const statusBarH = Math.round(img.height * 0.05);
+  const navBarH = Math.round(img.height * 0.06);
+
+  // Status bar overlay (top)
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, img.width, statusBarH);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = `${Math.round(statusBarH * 0.55)}px -apple-system, sans-serif`;
+  ctx.textBaseline = "middle";
+  const barMid = statusBarH / 2;
+
+  ctx.textAlign = "left";
+  ctx.fillText("9:41", Math.round(img.width * 0.05), barMid);
+
+  ctx.textAlign = "right";
+  ctx.fillText("100%", img.width - Math.round(img.width * 0.04), barMid);
+
+  // Battery icon
+  const battX = img.width - Math.round(img.width * 0.15);
+  const battW = Math.round(img.width * 0.04);
+  const battH = Math.round(statusBarH * 0.35);
+  ctx.fillStyle = "#34c759";
+  ctx.fillRect(battX, barMid - battH / 2, battW, battH);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(battX + battW, barMid - battH / 4, 2, battH / 2);
+
+  // Navigation bar overlay (bottom)
+  const navY = img.height - navBarH;
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(0, navY, img.width, navBarH);
+
+  // Home indicator
+  const indicatorW = Math.round(img.width * 0.35);
+  const indicatorH = Math.max(3, Math.round(navBarH * 0.08));
+  const indicatorX = (img.width - indicatorW) / 2;
+  const indicatorY = navY + navBarH * 0.65;
+  ctx.fillStyle = "#666666";
+  ctx.beginPath();
+  ctx.roundRect(indicatorX, indicatorY, indicatorW, indicatorH, indicatorH / 2);
+  ctx.fill();
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Fake browser window chrome overlaid on top edge */
+async function browserWindow(
+  dataUrl: string,
+  opts: ImageEvasionOptions
+): Promise<string> {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+
+  // Draw original image first
+  ctx.drawImage(img, 0, 0);
+
+  const tabBarH = Math.round(img.height * 0.05);
+  const urlBarH = Math.round(img.height * 0.04);
+  const chromeH = tabBarH + urlBarH;
+
+  // Tab bar overlay (top)
+  ctx.fillStyle = "#35363a";
+  ctx.fillRect(0, 0, img.width, tabBarH);
+
+  // Traffic lights
+  const dotR = Math.max(3, Math.round(tabBarH * 0.16));
+  const dotY = tabBarH / 2;
+  const dotStart = Math.round(dotR * 2.5);
+  const dotGap = Math.round(dotR * 2.5);
+  const colors = ["#ff5f57", "#febc2e", "#28c840"];
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(dotStart + i * dotGap, dotY, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+  }
+
+  // Active tab
+  const tabX = dotStart + 3 * dotGap + dotR * 2;
+  const tabW = Math.round(img.width * 0.2);
+  ctx.fillStyle = "#292a2d";
+  ctx.beginPath();
+  ctx.roundRect(tabX, Math.round(tabBarH * 0.2), tabW, Math.round(tabBarH * 0.8), [6, 6, 0, 0]);
+  ctx.fill();
+
+  ctx.fillStyle = "#e8eaed";
+  ctx.font = `${Math.round(tabBarH * 0.35)}px -apple-system, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText("Gallery — Photos", tabX + 10, tabBarH * 0.6);
+
+  // URL bar overlay
+  const urlY = tabBarH;
+  ctx.fillStyle = "#292a2d";
+  ctx.fillRect(0, urlY, img.width, urlBarH);
+
+  const urlInputX = Math.round(img.width * 0.08);
+  const urlInputW = Math.round(img.width * 0.84);
+  const urlInputH = Math.round(urlBarH * 0.65);
+  const urlInputY = urlY + (urlBarH - urlInputH) / 2;
+  ctx.fillStyle = "#35363a";
+  ctx.beginPath();
+  ctx.roundRect(urlInputX, urlInputY, urlInputW, urlInputH, urlInputH / 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#9aa0a6";
+  ctx.font = `${Math.round(urlBarH * 0.32)}px -apple-system, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText("\u{1F512}  photos.google.com/album/shared", urlInputX + Math.round(urlInputH * 0.5), urlY + urlBarH / 2);
+
+  // Thin bottom bar
+  ctx.fillStyle = "#35363a";
+  ctx.fillRect(0, img.height - Math.round(chromeH * 0.15), img.width, Math.round(chromeH * 0.15));
+
+  return canvas.toDataURL("image/png");
+}
+
+/** Custom color frame overlay — color from hidden text field, width from intensity */
+async function customFrame(
+  dataUrl: string,
+  opts: ImageEvasionOptions
+): Promise<string> {
+  const intensity = opts.intensity ?? 5;
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+
+  // Draw original image first
+  ctx.drawImage(img, 0, 0);
+
+  // Parse color from text field, default to gold
+  let color = "#c4a35a";
+  const textVal = (opts.text || "").trim();
+  if (/^#?[0-9a-fA-F]{3,8}$/.test(textVal)) {
+    color = textVal.startsWith("#") ? textVal : `#${textVal}`;
+  } else if (textVal) {
+    color = textVal;
+  }
+
+  const border = frameBorderWidth(img.width, img.height, intensity);
+
+  // Frame overlay on edges
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, img.width, border);                           // top
+  ctx.fillRect(0, 0, border, img.height);                          // left
+  ctx.fillRect(img.width - border, 0, border, img.height);         // right
+  ctx.fillRect(0, img.height - border, img.width, border);         // bottom
+
+  // Bevel lines for depth
+  ctx.strokeStyle = "rgba(255,255,255,0.25)";
+  ctx.lineWidth = Math.max(1, Math.round(border * 0.08));
+  ctx.strokeRect(0, 0, img.width, img.height);
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+  ctx.strokeRect(border, border, img.width - border * 2, img.height - border * 2);
+
+  return canvas.toDataURL("image/png");
+}
+
+// ---------------------------------------------------------------------------
 // Technique function map
 // ---------------------------------------------------------------------------
 
@@ -483,6 +768,11 @@ const TECHNIQUE_FNS: Record<Exclude<ImageEvasionTechnique, "all">, TechniqueFn> 
   lowOpacityBlend,
   subliminalText,
   contrastPush,
+  polaroidFrame,
+  galleryFrame,
+  phoneScreenshot,
+  browserWindow,
+  customFrame,
   jpegArtifacts,
   pixelShuffle,
   colorChannelShift,

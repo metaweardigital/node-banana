@@ -55,9 +55,10 @@ function isTextHandle(handleId: string | null | undefined): boolean {
 }
 
 /**
- * Extract output data and type from a source node
+ * Extract output data and type from a source node.
+ * sourceHandle disambiguates nodes with multiple output types (e.g. imageEvasion).
  */
-function getSourceOutput(sourceNode: WorkflowNode): { type: "image" | "text" | "video" | "audio" | "3d"; value: string | null } {
+function getSourceOutput(sourceNode: WorkflowNode, sourceHandle?: string | null): { type: "image" | "text" | "video" | "audio" | "3d"; value: string | null } {
   if (sourceNode.type === "imageInput") {
     return { type: "image", value: (sourceNode.data as ImageInputNodeData).image };
   } else if (sourceNode.type === "audioInput") {
@@ -86,7 +87,11 @@ function getSourceOutput(sourceNode: WorkflowNode): { type: "image" | "text" | "
   } else if (sourceNode.type === "promptEvasion") {
     return { type: "text", value: (sourceNode.data as PromptEvasionNodeData).outputText };
   } else if (sourceNode.type === "imageEvasion") {
-    return { type: "image", value: (sourceNode.data as ImageEvasionNodeData).outputImage };
+    const ieData = sourceNode.data as ImageEvasionNodeData;
+    if (sourceHandle === "text") {
+      return { type: "text", value: ieData.outputText ?? null };
+    }
+    return { type: "image", value: ieData.outputImage };
   } else if (sourceNode.type === "glbViewer") {
     return { type: "image", value: (sourceNode.data as GLBViewerNodeData).capturedImage };
   } else if (sourceNode.type === "imageTo3d") {
@@ -143,7 +148,7 @@ export function getConnectedInputsPure(
       if (!sourceNode) return;
 
       const handleId = edge.targetHandle;
-      const { type, value } = getSourceOutput(sourceNode);
+      const { type, value } = getSourceOutput(sourceNode, edge.sourceHandle);
 
       if (!value) return;
 

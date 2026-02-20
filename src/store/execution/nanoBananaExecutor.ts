@@ -7,6 +7,7 @@
 
 import type {
   NanoBananaNodeData,
+  ImageEvasionNodeData,
 } from "@/types";
 import { calculateGenerationCost } from "@/utils/costCalculator";
 import { buildGenerateHeaders } from "@/store/utils/buildApiHeaders";
@@ -61,6 +62,25 @@ export async function executeNanoBanana(
       ? dynamicInputs.prompt[0]
       : dynamicInputs.prompt;
     promptText = connectedText || promptFromDynamic || null;
+  }
+
+  // Auto-append anti-frame prompts from connected Image Evasion nodes
+  const allEdges = getEdges();
+  const allNodes = getNodes();
+  const antiFrameSuffixes: string[] = [];
+  allEdges
+    .filter((e) => e.target === node.id)
+    .forEach((e) => {
+      const srcNode = allNodes.find((n) => n.id === e.source);
+      if (srcNode?.type === "imageEvasion") {
+        const ieData = srcNode.data as ImageEvasionNodeData;
+        if (ieData.outputText) {
+          antiFrameSuffixes.push(ieData.outputText);
+        }
+      }
+    });
+  if (antiFrameSuffixes.length > 0 && promptText) {
+    promptText = `${promptText}\n\n${antiFrameSuffixes.join(" ")}`;
   }
 
   if (!promptText) {

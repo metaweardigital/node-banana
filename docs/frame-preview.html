@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Frame Evasion Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #ccc; font-family: -apple-system, sans-serif; padding: 20px; }
+  h1 { font-size: 18px; margin-bottom: 12px; color: #fff; }
+  .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .controls label { font-size: 13px; color: #999; }
+  .controls input[type="file"] { font-size: 12px; }
+  .controls input[type="range"] { width: 120px; }
+  .controls input[type="text"] { background: #222; border: 1px solid #444; color: #ccc; padding: 4px 8px; border-radius: 4px; font-size: 12px; width: 120px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 16px; }
+  .card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+  .card h3 { font-size: 13px; padding: 8px 12px; background: #222; border-bottom: 1px solid #333; }
+  .card canvas { width: 100%; display: block; }
+  .drop-zone { border: 2px dashed #444; border-radius: 8px; padding: 60px 20px; text-align: center; color: #666; font-size: 14px; cursor: pointer; margin-bottom: 16px; }
+  .drop-zone.dragover { border-color: #888; color: #aaa; }
+  .original { max-width: 300px; border: 1px solid #333; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>Frame Evasion Techniques — Preview</h1>
+
+<div class="controls">
+  <input type="file" id="fileInput" accept="image/*">
+  <label>Intensity: <input type="range" id="intensity" min="1" max="10" value="5"> <span id="intVal">5</span></label>
+  <label>Custom color: <input type="text" id="customColor" value="#c4a35a" placeholder="#hex or name"></label>
+</div>
+
+<div class="drop-zone" id="dropZone">Drop an image here or use the file picker above</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+// --- Helpers (copied from imageEvasion.ts logic) ---
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function createCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return { canvas: c, ctx: c.getContext('2d') };
+}
+
+function frameBorderWidth(imgW, imgH, intensity, scale = 0.03) {
+  const base = Math.round(Math.max(imgW, imgH) * scale);
+  return base + Math.round(intensity * base * 0.2);
+}
+
+// --- Frame techniques ---
+
+async function polaroidFrame(dataUrl, intensity) {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+  ctx.drawImage(img, 0, 0);
+  const border = frameBorderWidth(img.width, img.height, intensity);
+  const bottomBorder = Math.round(border * 2.5);
+  ctx.fillStyle = '#f5f5f0';
+  ctx.fillRect(0, 0, img.width, border);
+  ctx.fillRect(0, 0, border, img.height);
+  ctx.fillRect(img.width - border, 0, border, img.height);
+  ctx.fillRect(0, img.height - bottomBorder, img.width, bottomBorder);
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(border, border, img.width - border * 2, img.height - border - bottomBorder);
+  return canvas;
+}
+
+async function galleryFrame(dataUrl, intensity) {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+  ctx.drawImage(img, 0, 0);
+  const border = frameBorderWidth(img.width, img.height, intensity, 0.04);
+  const matWidth = Math.max(2, Math.round(border * 0.3));
+  const totalEdge = border + matWidth;
+  const gradient = ctx.createLinearGradient(0, 0, img.width, img.height);
+  gradient.addColorStop(0, '#4a3728');
+  gradient.addColorStop(0.3, '#2a1f14');
+  gradient.addColorStop(0.7, '#1a1008');
+  gradient.addColorStop(1, '#3a2a1a');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, img.width, totalEdge);
+  ctx.fillRect(0, 0, totalEdge, img.height);
+  ctx.fillRect(img.width - totalEdge, 0, totalEdge, img.height);
+  ctx.fillRect(0, img.height - totalEdge, img.width, totalEdge);
+  ctx.fillStyle = '#e8e0d4';
+  ctx.fillRect(border, border, img.width - border * 2, matWidth);
+  ctx.fillRect(border, border, matWidth, img.height - border * 2);
+  ctx.fillRect(img.width - border - matWidth, border, matWidth, img.height - border * 2);
+  ctx.fillRect(border, img.height - border - matWidth, img.width - border * 2, matWidth);
+  ctx.strokeStyle = '#8b7355';
+  ctx.lineWidth = Math.max(1, Math.round(border * 0.06));
+  ctx.strokeRect(border - 1, border - 1, img.width - (border - 1) * 2, img.height - (border - 1) * 2);
+  return canvas;
+}
+
+async function phoneScreenshot(dataUrl, intensity) {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+  ctx.drawImage(img, 0, 0);
+  const statusBarH = Math.round(img.height * 0.05);
+  const navBarH = Math.round(img.height * 0.06);
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, img.width, statusBarH);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${Math.round(statusBarH * 0.55)}px -apple-system, sans-serif`;
+  ctx.textBaseline = 'middle';
+  const barMid = statusBarH / 2;
+  ctx.textAlign = 'left';
+  ctx.fillText('9:41', Math.round(img.width * 0.05), barMid);
+  ctx.textAlign = 'right';
+  ctx.fillText('100%', img.width - Math.round(img.width * 0.04), barMid);
+  const battX = img.width - Math.round(img.width * 0.15);
+  const battW = Math.round(img.width * 0.04);
+  const battH = Math.round(statusBarH * 0.35);
+  ctx.fillStyle = '#34c759';
+  ctx.fillRect(battX, barMid - battH / 2, battW, battH);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(battX + battW, barMid - battH / 4, 2, battH / 2);
+  const navY = img.height - navBarH;
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, navY, img.width, navBarH);
+  const indicatorW = Math.round(img.width * 0.35);
+  const indicatorH = Math.max(3, Math.round(navBarH * 0.08));
+  const indicatorX = (img.width - indicatorW) / 2;
+  const indicatorY = navY + navBarH * 0.65;
+  ctx.fillStyle = '#666666';
+  ctx.beginPath();
+  ctx.roundRect(indicatorX, indicatorY, indicatorW, indicatorH, indicatorH / 2);
+  ctx.fill();
+  return canvas;
+}
+
+async function browserWindow(dataUrl, intensity) {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+  ctx.drawImage(img, 0, 0);
+  const tabBarH = Math.round(img.height * 0.05);
+  const urlBarH = Math.round(img.height * 0.04);
+  const chromeH = tabBarH + urlBarH;
+  ctx.fillStyle = '#35363a';
+  ctx.fillRect(0, 0, img.width, tabBarH);
+  const dotR = Math.max(3, Math.round(tabBarH * 0.16));
+  const dotY = tabBarH / 2;
+  const dotStart = Math.round(dotR * 2.5);
+  const dotGap = Math.round(dotR * 2.5);
+  const colors = ['#ff5f57', '#febc2e', '#28c840'];
+  for (let i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.arc(dotStart + i * dotGap, dotY, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+  }
+  const tabX = dotStart + 3 * dotGap + dotR * 2;
+  const tabW = Math.round(img.width * 0.2);
+  ctx.fillStyle = '#292a2d';
+  ctx.beginPath();
+  ctx.roundRect(tabX, Math.round(tabBarH * 0.2), tabW, Math.round(tabBarH * 0.8), [6, 6, 0, 0]);
+  ctx.fill();
+  ctx.fillStyle = '#e8eaed';
+  ctx.font = `${Math.round(tabBarH * 0.35)}px -apple-system, sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText('Gallery — Photos', tabX + 10, tabBarH * 0.6);
+  const urlY = tabBarH;
+  ctx.fillStyle = '#292a2d';
+  ctx.fillRect(0, urlY, img.width, urlBarH);
+  const urlInputX = Math.round(img.width * 0.08);
+  const urlInputW = Math.round(img.width * 0.84);
+  const urlInputH = Math.round(urlBarH * 0.65);
+  const urlInputY = urlY + (urlBarH - urlInputH) / 2;
+  ctx.fillStyle = '#35363a';
+  ctx.beginPath();
+  ctx.roundRect(urlInputX, urlInputY, urlInputW, urlInputH, urlInputH / 2);
+  ctx.fill();
+  ctx.fillStyle = '#9aa0a6';
+  ctx.font = `${Math.round(urlBarH * 0.32)}px -apple-system, sans-serif`;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText('\u{1F512}  photos.google.com/album/shared', urlInputX + Math.round(urlInputH * 0.5), urlY + urlBarH / 2);
+  ctx.fillStyle = '#35363a';
+  ctx.fillRect(0, img.height - Math.round(chromeH * 0.15), img.width, Math.round(chromeH * 0.15));
+  return canvas;
+}
+
+async function customFrame(dataUrl, intensity, color) {
+  const img = await loadImage(dataUrl);
+  const { canvas, ctx } = createCanvas(img.width, img.height);
+  ctx.drawImage(img, 0, 0);
+  const border = frameBorderWidth(img.width, img.height, intensity);
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, img.width, border);
+  ctx.fillRect(0, 0, border, img.height);
+  ctx.fillRect(img.width - border, 0, border, img.height);
+  ctx.fillRect(0, img.height - border, img.width, border);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = Math.max(1, Math.round(border * 0.08));
+  ctx.strokeRect(0, 0, img.width, img.height);
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.strokeRect(border, border, img.width - border * 2, img.height - border * 2);
+  return canvas;
+}
+
+// --- Rendering ---
+
+const techniques = [
+  { name: 'Original', fn: null },
+  { name: 'Polaroid Frame (~75%)', fn: polaroidFrame },
+  { name: 'Gallery Frame (~70%)', fn: galleryFrame },
+  { name: 'Phone Screenshot (~65%)', fn: phoneScreenshot },
+  { name: 'Browser Window (~55%)', fn: browserWindow },
+  { name: 'Custom Color Frame (~60%)', fn: customFrame },
+];
+
+let currentDataUrl = null;
+
+async function renderAll() {
+  if (!currentDataUrl) return;
+  const intensity = parseInt(document.getElementById('intensity').value);
+  const color = document.getElementById('customColor').value || '#c4a35a';
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  for (const tech of techniques) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const h3 = document.createElement('h3');
+    h3.textContent = tech.name;
+    card.appendChild(h3);
+
+    if (!tech.fn) {
+      const img = await loadImage(currentDataUrl);
+      const { canvas, ctx } = createCanvas(img.width, img.height);
+      ctx.drawImage(img, 0, 0);
+      card.appendChild(canvas);
+    } else {
+      const canvas = await tech.fn(currentDataUrl, intensity, color);
+      card.appendChild(canvas);
+    }
+    grid.appendChild(card);
+  }
+}
+
+// --- Event handlers ---
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    currentDataUrl = e.target.result;
+    document.getElementById('dropZone').style.display = 'none';
+    renderAll();
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  handleFile(e.target.files[0]);
+});
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+
+document.getElementById('intensity').addEventListener('input', (e) => {
+  document.getElementById('intVal').textContent = e.target.value;
+  renderAll();
+});
+document.getElementById('customColor').addEventListener('input', () => renderAll());
+</script>
+</body>
+</html>

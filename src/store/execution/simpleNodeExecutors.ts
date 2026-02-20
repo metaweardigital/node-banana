@@ -18,7 +18,7 @@ import type {
   WorkflowNode,
 } from "@/types";
 import { applyEvasion, type EvasionTechnique } from "@/utils/promptEvasion";
-import { applyImageEvasion, type ImageEvasionTechnique } from "@/utils/imageEvasion";
+import { applyImageEvasion, getAntiFramePrompt, type ImageEvasionTechnique } from "@/utils/imageEvasion";
 import type { NodeExecutionContext } from "./types";
 
 /**
@@ -309,7 +309,8 @@ export async function executeImageEvasion(ctx: NodeExecutionContext): Promise<vo
       intensity: nodeData.intensity,
       text: nodeData.hiddenText || undefined,
     });
-    updateNodeData(node.id, { outputImage, status: "complete" });
+    const outputText = getAntiFramePrompt(technique);
+    updateNodeData(node.id, { outputImage, outputText, status: "complete" });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[Workflow] ImageEvasion node ${node.id} failed:`, message);
