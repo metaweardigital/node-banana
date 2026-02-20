@@ -6,7 +6,7 @@
  */
 
 // Provider Types for multi-provider support (image/video generation)
-export type ProviderType = "gemini" | "openai" | "replicate" | "fal" | "kie" | "wavespeed" | "xai" | "bfl" | "comfyui" | "local";
+export type ProviderType = "gemini" | "openai" | "replicate" | "fal" | "kie" | "wavespeed" | "xai" | "bfl" | "byteplus" | "comfyui" | "local";
 
 // Model pricing info (stored when model is selected)
 export interface SelectedModelPricing {

@@ -20,6 +20,7 @@ import { generateWithKie } from "./providers/kie";
 import { generateWithWaveSpeed } from "./providers/wavespeed";
 import { generateXaiImage, generateWithXai } from "./providers/xai";
 import { generateWithBfl } from "./providers/bfl";
+import { generateWithByteplus } from "./providers/byteplus";
 import { generateWithComfyUI } from "./providers/comfyui";
 
 // Re-export for backward compatibility (test file imports from route)
@@ -672,6 +673,79 @@ export async function POST(request: NextRequest) {
           { success: false, error: "No output in generation result" },
           { status: 500 }
         );
+      }
+
+      return NextResponse.json<GenerateResponse>({
+        success: true,
+        image: output.data,
+        contentType: "image",
+      });
+    }
+
+    if (provider === "byteplus") {
+      const byteplusApiKey = request.headers.get("X-BytePlus-Key") || process.env.BYTEPLUS_API_KEY;
+      if (!byteplusApiKey) {
+        return NextResponse.json<GenerateResponse>(
+          {
+            success: false,
+            error: "BytePlus API key not configured. Add BYTEPLUS_API_KEY to .env.local or configure in Settings.",
+          },
+          { status: 401 }
+        );
+      }
+
+      const processedImages: string[] = images ? [...images] : [];
+
+      let processedDynamicInputs: Record<string, string | string[]> | undefined = undefined;
+      if (dynamicInputs) {
+        processedDynamicInputs = {};
+        for (const key of Object.keys(dynamicInputs)) {
+          const value = dynamicInputs[key];
+          if (value === null || value === undefined || value === '') continue;
+          processedDynamicInputs[key] = value;
+        }
+      }
+
+      const genInput: GenerationInput = {
+        model: {
+          id: selectedModel!.modelId,
+          name: selectedModel!.displayName,
+          provider: "byteplus",
+          capabilities: ["text-to-video", "image-to-video"],
+          description: null,
+        },
+        prompt: prompt || "",
+        images: processedImages,
+        parameters,
+        dynamicInputs: processedDynamicInputs,
+      };
+
+      const result = await generateWithByteplus(requestId, byteplusApiKey, genInput);
+
+      if (!result.success) {
+        return NextResponse.json<GenerateResponse>(
+          { success: false, error: result.error || "Generation failed" },
+          { status: 500 }
+        );
+      }
+
+      const output = result.outputs?.[0];
+      if (!output?.data && !output?.url) {
+        return NextResponse.json<GenerateResponse>(
+          { success: false, error: "No output in generation result" },
+          { status: 500 }
+        );
+      }
+
+      // Video output
+      if (output.type === "video") {
+        const isLargeVideo = !output.data && !!output.url;
+        return NextResponse.json<GenerateResponse>({
+          success: true,
+          video: isLargeVideo ? undefined : output.data,
+          videoUrl: isLargeVideo ? output.url : undefined,
+          contentType: "video",
+        });
       }
 
       return NextResponse.json<GenerateResponse>({

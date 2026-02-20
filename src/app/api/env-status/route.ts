@@ -9,6 +9,7 @@ export interface EnvStatusResponse {
   wavespeed: boolean;
   xai: boolean;
   bfl: boolean;
+  byteplus: boolean;
   comfyui: boolean;
   local: boolean;
 }
@@ -24,6 +25,7 @@ export async function GET() {
     wavespeed: !!process.env.WAVESPEED_API_KEY,
     xai: !!process.env.XAI_API_KEY,
     bfl: !!process.env.BFL_API_KEY,
+    byteplus: !!process.env.BYTEPLUS_API_KEY,
     comfyui: false, // ComfyUI is configured via UI (server URL), not env var
     local: !!process.env.LOCAL_LLM_URL,
   };

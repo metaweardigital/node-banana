@@ -2148,12 +2148,14 @@ export function useProviderApiKeys() {
       wavespeedApiKey: state.providerSettings.providers.wavespeed?.apiKey ?? null,
       xaiApiKey: state.providerSettings.providers.xai?.apiKey ?? null,
       bflApiKey: state.providerSettings.providers.bfl?.apiKey ?? null,
+      byteplusApiKey: state.providerSettings.providers.byteplus?.apiKey ?? null,
       comfyuiServerUrl: state.providerSettings.providers.comfyui?.apiKey ?? null,
       // Provider enabled states (for conditional UI)
       replicateEnabled: state.providerSettings.providers.replicate?.enabled ?? false,
       kieEnabled: state.providerSettings.providers.kie?.enabled ?? false,
       xaiEnabled: state.providerSettings.providers.xai?.enabled ?? false,
       bflEnabled: state.providerSettings.providers.bfl?.enabled ?? false,
+      byteplusEnabled: state.providerSettings.providers.byteplus?.enabled ?? false,
       comfyuiEnabled: state.providerSettings.providers.comfyui?.enabled ?? false,
     }))
   );

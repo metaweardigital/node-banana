@@ -58,7 +58,7 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
   const commentNavigation = useCommentNavigation(id);
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, xaiApiKey, bflApiKey, replicateEnabled, kieEnabled, xaiEnabled, bflEnabled } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, xaiApiKey, bflApiKey, byteplusApiKey, replicateEnabled, kieEnabled, xaiEnabled, bflEnabled, byteplusEnabled } = useProviderApiKeys();
   const generationsPath = useWorkflowStore((state) => state.generationsPath);
   const [externalModels, setExternalModels] = useState<ProviderModel[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
@@ -110,6 +110,9 @@ export function GenerateVideoNode({ id, data, selected }: NodeProps<GenerateVide
       }
       if (bflApiKey) {
         headers["X-BFL-Key"] = bflApiKey;
+      }
+      if (byteplusApiKey) {
+        headers["X-BytePlus-Key"] = byteplusApiKey;
       }
       const response = await deduplicatedFetch(`/api/models?provider=${currentProvider}&capabilities=${capabilities}`, { headers });
       if (response.ok) {

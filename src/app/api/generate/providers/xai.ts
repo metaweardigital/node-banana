@@ -94,6 +94,10 @@ export async function generateXaiImage(
       if (response.status === 429) {
         return { success: false, error: "xAI: Rate limit exceeded. Try again in a moment." };
       }
+      // Detect moderation errors and provide input-specific guidance
+      if (/moderat|content.policy|safety|blocked/i.test(errorDetail)) {
+        return { success: false, error: `xAI: ${errorDetail}. Try adjusting your prompt or using a different image.` };
+      }
       return { success: false, error: `xAI: ${errorDetail}` };
     }
 
@@ -148,6 +152,10 @@ export async function generateXaiImage(
 
       if (response.status === 429) {
         return { success: false, error: "xAI: Rate limit exceeded. Try again in a moment." };
+      }
+      // Detect moderation errors and provide guidance
+      if (/moderat|content.policy|safety|blocked/i.test(errorDetail)) {
+        return { success: false, error: `xAI: ${errorDetail}. Try adjusting your prompt.` };
       }
       return { success: false, error: `xAI: ${errorDetail}` };
     }
@@ -352,7 +360,20 @@ export async function generateWithXai(
       // Check for failure
       const failStatus = (currentStatus || "").toLowerCase();
       if (failStatus === "failed" || failStatus === "error" || failStatus === "cancelled" || pollData.error || pollData.moderation_status === "rejected") {
-        const failureReason = pollData.error?.message || pollData.error || pollData.moderation_reason || pollData.failure_reason || "Generation failed";
+        // Distinguish moderation rejections with input-specific messages
+        if (pollData.moderation_status === "rejected") {
+          const hasImages = (input.images && input.images.length > 0) || !!imageForVideo;
+          const hasPrompt = !!input.prompt?.trim();
+          const suggestion = hasImages && hasPrompt
+            ? "Try adjusting your prompt or using a different image."
+            : hasImages
+              ? "Try using a different image."
+              : "Try adjusting your prompt.";
+          const reason = pollData.moderation_reason ? ` (${pollData.moderation_reason})` : "";
+          console.error(`[API:${requestId}] xAI video moderated${reason}`);
+          return { success: false, error: `xAI: Content was moderated${reason}. ${suggestion}` };
+        }
+        const failureReason = pollData.error?.message || pollData.error || pollData.failure_reason || "Generation failed";
         console.error(`[API:${requestId}] xAI video failed: ${failureReason}`);
         return { success: false, error: `xAI: ${failureReason}` };
       }

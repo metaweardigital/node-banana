@@ -24,6 +24,7 @@ function ProviderIcon({ provider }: { provider: ProviderType }) {
     wavespeed: { bg: "bg-purple-500/20", text: "text-purple-300" },
     xai: { bg: "bg-neutral-500/20", text: "text-neutral-200" },
     bfl: { bg: "bg-green-500/20", text: "text-green-300" },
+    byteplus: { bg: "bg-sky-500/20", text: "text-sky-300" },
     comfyui: { bg: "bg-purple-500/20", text: "text-purple-300" },
     local: { bg: "bg-neutral-500/20", text: "text-neutral-300" },
   };
@@ -37,6 +38,7 @@ function ProviderIcon({ provider }: { provider: ProviderType }) {
     wavespeed: "W",
     xai: "X",
     bfl: "B",
+    byteplus: "BP",
     comfyui: "C",
     local: "L",
   };
@@ -63,6 +65,7 @@ function getProviderDisplayName(provider: ProviderType): string {
     wavespeed: "WaveSpeed",
     xai: "xAI",
     bfl: "BFL",
+    byteplus: "BytePlus",
     comfyui: "ComfyUI",
     local: "Local LLM",
   };
@@ -91,6 +94,9 @@ function getModelUrl(provider: ProviderType, modelId: string): string | null {
   }
   if (provider === "bfl") {
     return `https://docs.bfl.ai`;
+  }
+  if (provider === "byteplus") {
+    return `https://docs.byteplus.com/en/docs/ModelArk`;
   }
   return null;
 }

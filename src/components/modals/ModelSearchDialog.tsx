@@ -137,7 +137,7 @@ export function ModelSearchDialog({
     trackModelUsage,
   } = useWorkflowStore();
   // Use stable selector for API keys to prevent unnecessary re-fetches
-  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, bflApiKey, comfyuiServerUrl } = useProviderApiKeys();
+  const { replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, bflApiKey, byteplusApiKey, comfyuiServerUrl } = useProviderApiKeys();
   const { screenToFlowPosition } = useReactFlow();
 
   // State
@@ -243,6 +243,9 @@ export function ModelSearchDialog({
       if (bflApiKey) {
         headers["X-BFL-Key"] = bflApiKey;
       }
+      if (byteplusApiKey) {
+        headers["X-BytePlus-Key"] = byteplusApiKey;
+      }
       if (comfyuiServerUrl) {
         headers["X-ComfyUI-Server"] = comfyuiServerUrl;
       }
@@ -279,7 +282,7 @@ export function ModelSearchDialog({
         setIsLoading(false);
       }
     }
-  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, bflApiKey, comfyuiServerUrl]);
+  }, [debouncedSearch, providerFilter, capabilityFilter, replicateApiKey, falApiKey, kieApiKey, wavespeedApiKey, xaiApiKey, bflApiKey, byteplusApiKey, comfyuiServerUrl]);
 
   // Fetch models when filters change
   useEffect(() => {
@@ -404,6 +407,8 @@ export function ModelSearchDialog({
         return "bg-neutral-500/20 text-neutral-200";
       case "bfl":
         return "bg-green-500/20 text-green-300";
+      case "byteplus":
+        return "bg-sky-500/20 text-sky-300";
       default:
         return "bg-neutral-500/20 text-neutral-300";
     }
@@ -426,6 +431,8 @@ export function ModelSearchDialog({
         return "xAI";
       case "bfl":
         return "BFL";
+      case "byteplus":
+        return "BytePlus";
       default:
         return provider;
     }
@@ -491,6 +498,8 @@ export function ModelSearchDialog({
         return `https://docs.x.ai/developers/model-capabilities`;
       case "bfl":
         return `https://docs.bfl.ai`;
+      case "byteplus":
+        return `https://docs.byteplus.com/en/docs/ModelArk`;
       default:
         return null;
     }
@@ -696,6 +705,17 @@ export function ModelSearchDialog({
                 }`}
               >
                 <span className="text-[10px] font-bold leading-none">BFL</span>
+              </button>
+              <button
+                onClick={() => setProviderFilter("byteplus")}
+                title="BytePlus (Seedance)"
+                className={`p-2 rounded transition-colors ${
+                  providerFilter === "byteplus"
+                    ? "bg-sky-500/20 text-sky-300"
+                    : "text-neutral-400 hover:text-sky-300 hover:bg-neutral-700"
+                }`}
+              >
+                <span className="text-[10px] font-bold leading-none">BP</span>
               </button>
               <button
                 onClick={() => setProviderFilter("comfyui")}

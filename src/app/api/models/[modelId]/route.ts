@@ -656,6 +656,31 @@ function getBflSchema(modelId: string): ExtractedSchema {
 }
 
 /**
+ * Get hardcoded schema for BytePlus (Seedance) models
+ */
+function getByteplusSchema(modelId: string): ExtractedSchema {
+  const schemas: Record<string, ExtractedSchema> = {
+    "seedance-1-5-pro-251215": {
+      parameters: [
+        { name: "aspect_ratio", type: "string", description: "Output aspect ratio", enum: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16", "auto"], default: "16:9" },
+        { name: "resolution", type: "string", description: "Video resolution", enum: ["480p", "720p", "1080p"], default: "720p" },
+        { name: "duration", type: "integer", description: "Video duration in seconds", minimum: 4, maximum: 12, default: 5 },
+        { name: "sound", type: "boolean", description: "Generate video with audio", default: true },
+        { name: "camerafixed", type: "boolean", description: "Fixed-lens (lock camera position)", default: false },
+        { name: "draft", type: "boolean", description: "Draft mode (faster, lower quality)", default: false },
+        { name: "seed", type: "integer", description: "Random seed for reproducibility", minimum: 0 },
+      ],
+      inputs: [
+        { name: "prompt", type: "text", required: true, label: "Prompt" },
+        { name: "input_image", type: "image", required: false, label: "First Frame" },
+      ],
+    },
+  };
+
+  return schemas[modelId] || { parameters: [], inputs: [] };
+}
+
+/**
  * Get hardcoded schema for Kie.ai models
  * Kie.ai doesn't have a schema discovery API, so we define these manually
  */
@@ -1189,7 +1214,7 @@ export async function GET(
   const decodedModelId = decodeURIComponent(modelId);
   const provider = request.nextUrl.searchParams.get("provider") as ProviderType | null;
 
-  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "kie" && provider !== "wavespeed" && provider !== "xai" && provider !== "bfl" && provider !== "comfyui")) {
+  if (!provider || (provider !== "replicate" && provider !== "fal" && provider !== "kie" && provider !== "wavespeed" && provider !== "xai" && provider !== "bfl" && provider !== "byteplus" && provider !== "comfyui")) {
     return NextResponse.json<SchemaErrorResponse>(
       {
         success: false,
@@ -1234,6 +1259,8 @@ export async function GET(
       result = getXaiSchema(decodedModelId);
     } else if (provider === "bfl") {
       result = getBflSchema(decodedModelId);
+    } else if (provider === "byteplus") {
+      result = getByteplusSchema(decodedModelId);
     } else if (provider === "kie") {
       // Kie.ai uses hardcoded schemas (no schema discovery API)
       result = getKieSchema(decodedModelId);

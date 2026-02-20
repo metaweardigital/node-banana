@@ -188,8 +188,15 @@ export async function generateWithBfl(
       }
 
       if (currentStatus === "Content Moderated" || currentStatus === "Request Moderated") {
+        const hasImages = input.images && input.images.length > 0;
+        const hasPrompt = !!input.prompt?.trim();
+        const suggestion = hasImages && hasPrompt
+          ? "Try adjusting your prompt or using a different image."
+          : hasImages
+            ? "Try using a different image."
+            : "Try adjusting your prompt.";
         console.error(`[API:${requestId}] BFL content moderated`);
-        return { success: false, error: "BFL: Content was moderated. Try adjusting your prompt." };
+        return { success: false, error: `BFL: Content was moderated. ${suggestion}` };
       }
 
       // Continue polling for Pending or other statuses

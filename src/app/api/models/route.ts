@@ -419,6 +419,20 @@ const BFL_MODELS: ProviderModel[] = [
   },
 ];
 
+// BytePlus (ByteDance Seedance) models (hardcoded - direct API integration)
+const BYTEPLUS_MODELS: ProviderModel[] = [
+  {
+    id: "seedance-1-5-pro-251215",
+    name: "Seedance 1.5 Pro",
+    description: "Professional video model with V2A native generation. Synced audio-visual output, 480P-1080P, 4-12s duration.",
+    provider: "byteplus",
+    capabilities: ["text-to-video", "image-to-video"],
+    coverImage: undefined,
+    pricing: { type: "per-run", amount: 0.50, currency: "USD" },
+    pageUrl: "https://docs.byteplus.com/en/docs/ModelArk/2168087",
+  },
+];
+
 // Gemini image models (hardcoded - these don't come from an external API)
 const GEMINI_IMAGE_MODELS: ProviderModel[] = [
   {
@@ -972,6 +986,7 @@ export async function GET(
   const wavespeedKey = request.headers.get("X-WaveSpeed-Key") || process.env.WAVESPEED_API_KEY || null;
   const xaiKey = request.headers.get("X-XAI-Key") || process.env.XAI_API_KEY || null;
   const bflKey = request.headers.get("X-BFL-Key") || process.env.BFL_API_KEY || null;
+  const byteplusKey = request.headers.get("X-BytePlus-Key") || process.env.BYTEPLUS_API_KEY || null;
   const comfyuiServer = request.headers.get("X-ComfyUI-Server") || null;
 
   // Determine which providers to fetch from (excluding gemini/kie - handled separately as hardcoded)
@@ -980,6 +995,7 @@ export async function GET(
   let includeKie = false;
   let includeXai = false;
   let includeBfl = false;
+  let includeByteplus = false;
   let includeComfyUI = false;
 
   if (providerFilter) {
@@ -995,6 +1011,9 @@ export async function GET(
     } else if (providerFilter === "bfl") {
       // Only BFL requested - no external API calls needed (hardcoded models)
       includeBfl = true;
+    } else if (providerFilter === "byteplus") {
+      // Only BytePlus requested - no external API calls needed (hardcoded models)
+      includeByteplus = true;
     } else if (providerFilter === "comfyui") {
       if (comfyuiServer) {
         includeComfyUI = true;
@@ -1034,6 +1053,7 @@ export async function GET(
     includeKie = kieKey ? true : false; // Kie only if API key is configured
     includeXai = xaiKey ? true : false; // xAI only if API key is configured
     includeBfl = bflKey ? true : false; // BFL only if API key is configured
+    includeByteplus = byteplusKey ? true : false; // BytePlus only if API key is configured
     if (comfyuiServer) {
       includeComfyUI = true;
       providersToFetch.push("comfyui");
@@ -1050,7 +1070,7 @@ export async function GET(
   }
 
   // Gemini and Kie are always available (with key for Kie), so we don't fail if no external providers
-  if (providersToFetch.length === 0 && !includeGemini && !includeKie && !includeXai && !includeBfl && !includeComfyUI) {
+  if (providersToFetch.length === 0 && !includeGemini && !includeKie && !includeXai && !includeBfl && !includeByteplus && !includeComfyUI) {
     return NextResponse.json<ModelsErrorResponse>(
       {
         success: false,
@@ -1108,6 +1128,21 @@ export async function GET(
     providerResults["bfl"] = {
       success: true,
       count: bflModels.length,
+      cached: true,
+    };
+    anyFromCache = true;
+  }
+
+  // Add BytePlus models if included (hardcoded, no API call needed)
+  if (includeByteplus) {
+    let byteplusModels = BYTEPLUS_MODELS;
+    if (searchQuery) {
+      byteplusModels = filterModelsBySearch(byteplusModels, searchQuery);
+    }
+    allModels.push(...byteplusModels);
+    providerResults["byteplus"] = {
+      success: true,
+      count: byteplusModels.length,
       cached: true,
     };
     anyFromCache = true;

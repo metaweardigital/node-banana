@@ -127,10 +127,20 @@ export async function generateWithGemini(
     const finishReason = candidate.finishReason || "unknown";
     const safetyRatings = candidate.safetyRatings;
     const blocked = safetyRatings?.filter((r) => r.probability === "HIGH" || r.probability === "MEDIUM");
+
+    // Determine what input was likely rejected
+    const hasImageInput = imageData.length > 0;
+    const hasPromptInput = !!prompt?.trim();
+    const inputSource = hasImageInput && hasPromptInput
+      ? "prompt or image"
+      : hasImageInput
+        ? "image"
+        : "prompt";
+
     const detail = finishReason === "SAFETY"
-      ? "Content was blocked by safety filters"
+      ? `Your ${inputSource} was blocked by safety filters`
       : blocked && blocked.length > 0
-        ? `Filtered by: ${blocked.map((r) => r.category).join(", ")}`
+        ? `Your ${inputSource} was filtered by: ${blocked.map((r) => r.category).join(", ")}`
         : `Empty response (finishReason: ${finishReason})`;
 
     console.error(`[API:${requestId}] No parts in Gemini candidate: ${detail}`);
