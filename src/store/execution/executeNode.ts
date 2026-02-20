@@ -22,6 +22,7 @@ import { executeGenerate3D } from "./generate3dExecutor";
 import { executeLlmGenerate } from "./llmGenerateExecutor";
 import { executeSplitGrid } from "./splitGridExecutor";
 import { executeVideoStitch, executeEaseCurve } from "./videoProcessingExecutors";
+import { executeImageTo3d } from "./imageTo3dExecutor";
 
 export interface ExecuteNodeOptions {
   /** When true, executors that support it will fall back to stored inputs. */
@@ -85,6 +86,9 @@ export async function executeNode(
       break;
     case "glbViewer":
       await executeGlbViewer(ctx);
+      break;
+    case "imageTo3d":
+      await executeImageTo3d(ctx);
       break;
   }
 }

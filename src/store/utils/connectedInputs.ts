@@ -22,6 +22,7 @@ import {
   GLBViewerNodeData,
   PromptEvasionNodeData,
   ImageEvasionNodeData,
+  ImageTo3dNodeData,
 } from "@/types";
 
 /**
@@ -88,6 +89,8 @@ function getSourceOutput(sourceNode: WorkflowNode): { type: "image" | "text" | "
     return { type: "image", value: (sourceNode.data as ImageEvasionNodeData).outputImage };
   } else if (sourceNode.type === "glbViewer") {
     return { type: "image", value: (sourceNode.data as GLBViewerNodeData).capturedImage };
+  } else if (sourceNode.type === "imageTo3d") {
+    return { type: "image", value: (sourceNode.data as ImageTo3dNodeData).outputImage };
   }
   return { type: "image", value: null };
 }

@@ -38,3 +38,5 @@ export {
   executeVideoStitch,
   executeEaseCurve,
 } from "./videoProcessingExecutors";
+
+export { executeImageTo3d } from "./imageTo3dExecutor";

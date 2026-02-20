@@ -173,6 +173,17 @@ function GenerateComboButton() {
             3D
           </button>
           <button
+            onClick={() => handleAddNode("imageTo3d")}
+            draggable
+            onDragStart={(e) => handleDragStart(e, "imageTo3d")}
+            className="w-full px-3 py-2 text-left text-[11px] font-medium text-neutral-300 hover:bg-neutral-700 hover:text-neutral-100 transition-colors flex items-center gap-2 cursor-grab active:cursor-grabbing"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25" />
+            </svg>
+            SHARP 3D
+          </button>
+          <button
             onClick={() => handleAddNode("llmGenerate")}
             draggable
             onDragStart={(e) => handleDragStart(e, "llmGenerate")}

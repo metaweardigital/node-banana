@@ -41,7 +41,8 @@ export type NodeType =
   | "glbViewer"
   | "promptEvasion"
   | "imageEvasion"
-  | "textLabel";
+  | "textLabel"
+  | "imageTo3d";
 
 /**
  * Node execution status
@@ -345,6 +346,19 @@ export interface ImageEvasionNodeData extends BaseNodeData {
 }
 
 /**
+ * Image to 3D node - SHARP monocular view synthesis
+ */
+export interface ImageTo3dNodeData extends BaseNodeData {
+  inputImages: string[];
+  inputImageRefs?: string[];
+  outputImage: string | null; // server-rendered preview (for downstream nodes)
+  plyId: string | null; // server-cached .ply ID
+  angle: number; // Y-axis rotation in degrees
+  status: NodeStatus;
+  error: string | null;
+}
+
+/**
  * Union of all node data types
  */
 export type WorkflowNodeData =
@@ -366,7 +380,8 @@ export type WorkflowNodeData =
   | GLBViewerNodeData
   | PromptEvasionNodeData
   | ImageEvasionNodeData
-  | TextLabelNodeData;
+  | TextLabelNodeData
+  | ImageTo3dNodeData;
 
 /**
  * Workflow node with typed data (extended with optional groupId)

@@ -46,6 +46,7 @@ const DEFAULT_DIMENSIONS: Record<NodeType, { width: number; height: number }> = 
   promptEvasion: { width: 340, height: 320 },
   imageEvasion: { width: 300, height: 140 },
   textLabel: { width: 320, height: 60 },
+  imageTo3d: { width: 300, height: 330 },
 };
 
 /**
@@ -358,6 +359,15 @@ function createDefaultNodeData(type: NodeType): WorkflowNodeData {
       return {
         text: "Title",
         preset: "h1",
+      };
+    case "imageTo3d":
+      return {
+        inputImages: [],
+        outputImage: null,
+        plyId: null,
+        angle: 0,
+        status: "idle",
+        error: null,
       };
   }
 }

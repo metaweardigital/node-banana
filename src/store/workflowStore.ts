@@ -77,6 +77,7 @@ import {
   executeGlbViewer,
   executePromptEvasion,
   executeImageEvasion,
+  executeImageTo3d,
 } from "./execution";
 import type { NodeExecutionContext } from "./execution";
 export type { LevelGroup } from "./utils/executionUtils";
@@ -1001,6 +1002,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           case "imageEvasion":
             await executeImageEvasion(executionCtx);
             break;
+          case "imageTo3d":
+            await executeImageTo3d(executionCtx);
+            break;
         }
     }; // End of executeSingleNode helper
 
@@ -1156,6 +1160,8 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
         set({ isRunning: remaining.length > 0, currentNodeIds: remaining, ...(!remaining.length ? { _abortController: null } : {}) });
         await logger.endSession();
         return;
+      } else if (node.type === "imageTo3d") {
+        await executeImageTo3d(executionCtx);
       }
 
       // After regeneration, execute directly connected downstream consumer nodes
@@ -1311,6 +1317,9 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
           break;
         case "imageEvasion":
           await executeImageEvasion(executionCtx);
+          break;
+        case "imageTo3d":
+          await executeImageTo3d(executionCtx);
           break;
       }
     };

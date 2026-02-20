@@ -37,6 +37,7 @@ import {
   PromptEvasionNode,
   ImageEvasionNode,
   TextLabelNode,
+  ImageTo3dNode,
 } from "./nodes";
 
 // Lazy-load GLBViewerNode to avoid bundling three.js for users who don't use 3D nodes
@@ -77,6 +78,7 @@ const nodeTypes: NodeTypes = {
   promptEvasion: PromptEvasionNode,
   imageEvasion: ImageEvasionNode,
   textLabel: TextLabelNode,
+  imageTo3d: ImageTo3dNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -145,6 +147,8 @@ const getNodeHandles = (nodeType: string): { inputs: string[]; outputs: string[]
     case "promptEvasion":
       return { inputs: ["text"], outputs: ["text"] };
     case "imageEvasion":
+      return { inputs: ["image"], outputs: ["image"] };
+    case "imageTo3d":
       return { inputs: ["image"], outputs: ["image"] };
     default:
       return { inputs: [], outputs: [] };
@@ -1088,6 +1092,9 @@ export function WorkflowCanvas() {
           case "a":
             nodeType = "annotation";
             break;
+          case "3":
+            nodeType = "imageTo3d";
+            break;
         }
 
         if (nodeType) {
@@ -1114,6 +1121,7 @@ export function WorkflowCanvas() {
             promptEvasion: { width: 340, height: 320 },
             imageEvasion: { width: 300, height: 140 },
             textLabel: { width: 320, height: 60 },
+            imageTo3d: { width: 300, height: 330 },
           };
           const dims = defaultDimensions[nodeType];
           addNode(nodeType, { x: centerX - dims.width / 2, y: centerY - dims.height / 2 });

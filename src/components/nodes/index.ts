@@ -16,4 +16,5 @@ export { EaseCurveNode } from "./EaseCurveNode";
 export { PromptEvasionNode } from "./PromptEvasionNode";
 export { ImageEvasionNode } from "./ImageEvasionNode";
 export { TextLabelNode } from "./TextLabelNode";
+export { ImageTo3dNode } from "./ImageTo3dNode";
 export { GroupNode } from "./GroupNode";

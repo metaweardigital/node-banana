@@ -18,6 +18,7 @@ import {
   PromptEvasionNodeData,
   ImageEvasionNodeData,
   TextLabelNodeData,
+  ImageTo3dNodeData,
   WorkflowNodeData,
   GroupColor,
   SelectedModel,
@@ -48,6 +49,7 @@ export const defaultNodeDimensions: Record<NodeType, { width: number; height: nu
   promptEvasion: { width: 320, height: 460 },
   imageEvasion: { width: 300, height: 140 },
   textLabel: { width: 320, height: 60 },
+  imageTo3d: { width: 300, height: 330 },
 };
 
 /**
@@ -263,5 +265,14 @@ export const createDefaultNodeData = (type: NodeType): WorkflowNodeData => {
         text: "Title",
         preset: "h1",
       } as TextLabelNodeData;
+    case "imageTo3d":
+      return {
+        inputImages: [],
+        outputImage: null,
+        plyId: null,
+        angle: 0,
+        status: "idle",
+        error: null,
+      } as ImageTo3dNodeData;
   }
 };
