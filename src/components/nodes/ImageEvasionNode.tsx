@@ -9,6 +9,7 @@ import {
   ImageEvasionTechnique,
   IMAGE_TECHNIQUE_LABELS,
 } from "@/utils/imageEvasion";
+import { InfoTooltip } from "./InfoTooltip";
 
 /** Techniques that use the hidden text field */
 const TEXT_TECHNIQUES = new Set<string>([
@@ -134,14 +135,9 @@ export function ImageEvasionNode({
             ))}
           </select>
           {nodeData.technique !== "all" && (
-            <div className="relative group">
-              <span className="flex items-center justify-center w-4 h-4 text-[9px] text-neutral-500 hover:text-neutral-300 border border-neutral-700 rounded-full cursor-help transition-colors">
-                ?
-              </span>
-              <div className="absolute bottom-full right-0 mb-1 w-52 p-2 text-[9px] leading-relaxed text-neutral-300 bg-neutral-800 border border-neutral-600 rounded shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50">
-                {TECHNIQUE_DESCRIPTIONS[nodeData.technique as Exclude<ImageEvasionTechnique, "all">]}
-              </div>
-            </div>
+            <InfoTooltip
+              text={TECHNIQUE_DESCRIPTIONS[nodeData.technique as Exclude<ImageEvasionTechnique, "all">]}
+            />
           )}
         </div>
 
