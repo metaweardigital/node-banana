@@ -11,6 +11,7 @@ import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   ExclamationTriangleIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
@@ -816,6 +817,21 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     setGlobalTime(getClipStartTime(clipId));
   }, [getClipStartTime]);
 
+  const handleDeleteClip = useCallback((clipId: string) => {
+    stopPlayback();
+    setClips((prev) => {
+      const filtered = prev.filter((c) => c.id !== clipId);
+      // If we deleted the active clip, select the previous one or clear
+      if (activeClipId === clipId) {
+        const idx = prev.findIndex((c) => c.id === clipId);
+        const next = filtered[Math.max(0, idx - 1)];
+        setActiveClipId(next?.id ?? null);
+      }
+      return filtered;
+    });
+    setGlobalTime(0);
+  }, [activeClipId, stopPlayback]);
+
   // Stop playback and animation loop
   const stopPlayback = useCallback(() => {
     isPlayingRef.current = false;
@@ -1501,37 +1517,51 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           </div>
         </div>
 
-        {/* Clip track with playhead */}
-        <div
-          ref={timelineTrackRef}
-          className="flex-1 px-3 py-2 relative cursor-pointer"
-          onClick={handleTimelineScrub}
-        >
-          {clips.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
+        {/* Clip track */}
+        <div className="flex-1 px-3 py-2 overflow-x-auto flex items-center gap-1.5">
+          {/* Input image as first timeline item */}
+          {inputImage && (
+            <div
+              className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative ${
+                !activeClipId ? "border-green-500" : "border-neutral-700"
+              }`}
+              style={{ aspectRatio: "9/16" }}
+            >
+              <img
+                src={inputImage}
+                alt="Input"
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                <span className="text-[8px] text-green-400 font-medium">IN</span>
+              </div>
+            </div>
+          )}
+
+          {clips.length === 0 && !inputImage ? (
+            <div className="flex-1 flex items-center justify-center">
               <span className="text-[10px] text-neutral-600">
-                Timeline empty — generate your first clip
+                Timeline empty — upload image & generate
               </span>
             </div>
           ) : (
-            <div className="h-full flex items-center gap-0.5">
-              {clips.map((clip, index) => {
-                const widthPercent = totalDuration > 0 ? (clip.duration / totalDuration) * 100 : 0;
-                return (
+            <>
+              {clips.map((clip, index) => (
+                <div
+                  key={clip.id}
+                  className="flex-shrink-0 flex items-center gap-1.5"
+                >
+                  {/* Video clip */}
                   <button
-                    key={clip.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleClipClick(clip.id);
-                    }}
-                    className={`h-[70px] rounded-md overflow-hidden border-2 transition-colors relative group flex-shrink-0 ${
+                    onClick={() => handleClipClick(clip.id)}
+                    className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative group ${
                       activeClipId === clip.id
                         ? "border-blue-500"
                         : clip.status === "error"
                           ? "border-red-500/50"
                           : "border-neutral-700 hover:border-neutral-600"
                     }`}
-                    style={{ width: `${Math.max(widthPercent, 3)}%` }}
+                    style={{ aspectRatio: "9/16" }}
                   >
                     {clip.status === "generating" ? (
                       <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
@@ -1559,49 +1589,54 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                         {clip.duration}s
                       </span>
                     </div>
+                    {/* Delete button */}
+                    <div
+                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClip(clip.id);
+                      }}
+                    >
+                      <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                        <XMarkIcon className="w-2.5 h-2.5 text-white" />
+                      </div>
+                    </div>
                   </button>
-                );
-              })}
+                </div>
+              ))}
+
               {/* Add clip button */}
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleGenerate();
-                }}
+                onClick={() => handleGenerate()}
                 disabled={isGenerating}
                 className="flex-shrink-0 h-[70px] w-[40px] rounded-md border-2 border-dashed border-neutral-700 hover:border-neutral-600 flex items-center justify-center transition-colors"
               >
                 <PlusIcon className="w-4 h-4 text-neutral-600" />
               </button>
-
-              {/* Playhead */}
-              {totalDuration > 0 && (
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none z-10"
-                  style={{
-                    left: `calc(${(globalTime / totalDuration) * 100}% + 12px)`, // 12px = px-3 padding
-                  }}
-                >
-                  {/* Playhead knob */}
-                  <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-blue-500 rounded-full shadow-sm" />
-                </div>
-              )}
-            </div>
+            </>
           )}
         </div>
 
-        {/* Scrubber bar / time axis */}
-        <div className="h-[20px] px-3 border-t border-neutral-800/50">
-          {totalDuration > 0 ? (
-            <div
-              className="h-full relative cursor-pointer"
-              onClick={handleTimelineScrub}
-            >
+        {/* Scrubber / time axis */}
+        <div
+          ref={timelineTrackRef}
+          className="h-[20px] mx-3 border-t border-neutral-800/50 relative cursor-pointer"
+          onClick={handleTimelineScrub}
+        >
+          {totalDuration > 0 && (
+            <>
               {/* Progress fill */}
               <div
                 className="absolute top-0 left-0 bottom-0 bg-blue-600/20 rounded-sm"
                 style={{ width: `${(globalTime / totalDuration) * 100}%` }}
               />
+              {/* Playhead */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-blue-500 z-10 pointer-events-none"
+                style={{ left: `${(globalTime / totalDuration) * 100}%` }}
+              >
+                <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-500 rounded-full" />
+              </div>
               {/* Time labels */}
               <div className="absolute inset-0 flex items-center">
                 {Array.from({ length: Math.ceil(totalDuration) + 1 }).map(
@@ -1620,9 +1655,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   )
                 )}
               </div>
-            </div>
-          ) : (
-            <div className="h-full" />
+            </>
           )}
         </div>
       </div>
