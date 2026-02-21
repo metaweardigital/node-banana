@@ -343,6 +343,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const [clips, setClips] = useState<Clip[]>([]);
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [globalTime, setGlobalTime] = useState(0); // current playback position across all clips (seconds)
+  const isPlayingRef = useRef(false); // ref mirror to avoid stale closures in rAF
+  const rafRef = useRef<number | null>(null);
 
   // Generating state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -354,9 +357,35 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   // Video playback ref
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Timeline scrubber ref
+  const timelineTrackRef = useRef<HTMLDivElement>(null);
+
   const activeClip = clips.find((c) => c.id === activeClipId) || null;
 
+  const playableClips = clips.filter((c) => c.status === "done" && c.videoSrc);
   const totalDuration = clips.reduce((sum, c) => sum + c.duration, 0);
+
+  // Compute which clip a given global time falls in, and the local offset within that clip
+  const getClipAtTime = useCallback((time: number): { clip: Clip; localTime: number } | null => {
+    let accumulated = 0;
+    for (const c of playableClips) {
+      if (time < accumulated + c.duration) {
+        return { clip: c, localTime: time - accumulated };
+      }
+      accumulated += c.duration;
+    }
+    return null;
+  }, [playableClips]);
+
+  // Get the global start time of a given clip
+  const getClipStartTime = useCallback((clipId: string): number => {
+    let accumulated = 0;
+    for (const c of playableClips) {
+      if (c.id === clipId) return accumulated;
+      accumulated += c.duration;
+    }
+    return 0;
+  }, [playableClips]);
 
   // Load API key from provider settings
   useEffect(() => {
@@ -799,22 +828,169 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   }, [prompt, xaiApiKey, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject, useLastFrame]);
 
   const handleClipClick = useCallback((clipId: string) => {
+    stopPlayback();
     setActiveClipId(clipId);
+    setGlobalTime(getClipStartTime(clipId));
+  }, [getClipStartTime]);
+
+  // Stop playback and animation loop
+  const stopPlayback = useCallback(() => {
+    isPlayingRef.current = false;
     setIsPlaying(false);
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const video = videoRef.current;
+    if (video && !video.paused) video.pause();
   }, []);
 
-  // Toggle video play/pause
-  const toggleVideoPlayback = useCallback(() => {
+  // Start sequential playback from current globalTime
+  const startPlayback = useCallback(() => {
+    if (playableClips.length === 0) return;
+
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+
+    // Find which clip to start from
+    const target = getClipAtTime(globalTime);
+    if (!target) {
+      // Past end — restart from beginning
+      setGlobalTime(0);
+      setActiveClipId(playableClips[0]?.id ?? null);
+      // Will be picked up on next render
+      return;
+    }
+
+    if (activeClipId !== target.clip.id) {
+      setActiveClipId(target.clip.id);
+    }
+
+    // The video element will be set by React render; we start tracking in rAF
+    let lastTimestamp: number | null = null;
+
+    const tick = (timestamp: number) => {
+      if (!isPlayingRef.current) return;
+
+      if (lastTimestamp === null) lastTimestamp = timestamp;
+      const delta = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      setGlobalTime((prev) => {
+        const next = prev + delta;
+        const totalPlayable = playableClips.reduce((s, c) => s + c.duration, 0);
+        if (next >= totalPlayable) {
+          // End of all clips — stop
+          isPlayingRef.current = false;
+          setIsPlaying(false);
+          return totalPlayable;
+        }
+        return next;
+      });
+
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+  }, [playableClips, globalTime, activeClipId, getClipAtTime]);
+
+  // Sync video element when globalTime changes during playback
+  useEffect(() => {
+    if (!isPlayingRef.current) return;
+
+    const target = getClipAtTime(globalTime);
+    if (!target) {
+      stopPlayback();
+      return;
+    }
+
+    // Switch clip if needed
+    if (activeClipId !== target.clip.id) {
+      setActiveClipId(target.clip.id);
+    }
+
+    // Sync video element currentTime
+    const video = videoRef.current;
+    if (video && video.src && activeClipId === target.clip.id) {
+      // Only seek if drift is > 0.5s (avoid constant seeking)
+      if (Math.abs(video.currentTime - target.localTime) > 0.5) {
+        video.currentTime = target.localTime;
+      }
+      if (video.paused) video.play().catch(() => {});
+    }
+  }, [globalTime, activeClipId, getClipAtTime, stopPlayback]);
+
+  // When active clip changes during playback, start playing the new video
+  useEffect(() => {
+    if (!isPlayingRef.current) return;
     const video = videoRef.current;
     if (!video) return;
-    if (video.paused) {
-      video.play();
-      setIsPlaying(true);
-    } else {
-      video.pause();
-      setIsPlaying(false);
-    }
+
+    const handleCanPlay = () => {
+      if (isPlayingRef.current) {
+        const target = getClipAtTime(globalTime);
+        if (target) video.currentTime = target.localTime;
+        video.play().catch(() => {});
+      }
+    };
+
+    video.addEventListener("canplay", handleCanPlay, { once: true });
+    return () => video.removeEventListener("canplay", handleCanPlay);
+  }, [activeClipId, getClipAtTime, globalTime]);
+
+  // Cleanup rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, []);
+
+  // Toggle play/pause
+  const togglePlayback = useCallback(() => {
+    if (isPlaying) {
+      stopPlayback();
+    } else {
+      startPlayback();
+    }
+  }, [isPlaying, stopPlayback, startPlayback]);
+
+  // Seek to a global time position
+  const seekTo = useCallback((time: number) => {
+    const wasPlaying = isPlayingRef.current;
+    stopPlayback();
+
+    const clamped = Math.max(0, Math.min(time, totalDuration));
+    setGlobalTime(clamped);
+
+    const target = getClipAtTime(clamped);
+    if (target) {
+      setActiveClipId(target.clip.id);
+      // Seek the video element after render
+      requestAnimationFrame(() => {
+        const video = videoRef.current;
+        if (video) {
+          video.currentTime = target.localTime;
+        }
+      });
+    }
+
+    if (wasPlaying) {
+      // Resume playback after seek
+      requestAnimationFrame(() => startPlayback());
+    }
+  }, [stopPlayback, totalDuration, getClipAtTime, startPlayback]);
+
+  // Handle click on the timeline scrubber bar
+  const handleTimelineScrub = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const track = timelineTrackRef.current;
+    if (!track || totalDuration === 0) return;
+
+    const rect = track.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const ratio = Math.max(0, Math.min(1, x / rect.width));
+    const playableDuration = playableClips.reduce((s, c) => s + c.duration, 0);
+    seekTo(ratio * playableDuration);
+  }, [totalDuration, playableClips, seekTo]);
 
   // ---- Render ----
 
@@ -1009,15 +1185,14 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           ) : activeClip?.videoSrc ? (
             <div className="flex flex-col items-center gap-3 max-h-full p-6">
               <div className="flex-1 min-h-0 flex items-center justify-center">
-                <div className="relative group cursor-pointer" onClick={toggleVideoPlayback}>
+                <div className="relative group cursor-pointer" onClick={togglePlayback}>
                   <video
                     ref={videoRef}
                     src={activeClip.videoSrc}
                     className="max-h-[calc(100vh-280px)] object-contain rounded-lg"
                     style={{ aspectRatio: aspectRatio.replace(":", "/") }}
-                    loop
                     playsInline
-                    onEnded={() => setIsPlaying(false)}
+                    muted={false}
                   />
                   {/* Play/Pause overlay */}
                   {!isPlaying && (
@@ -1346,10 +1521,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         {/* Playback controls row */}
         <div className="h-[30px] flex items-center px-3 border-b border-neutral-800/50 gap-3">
           <button
-            onClick={() => {
-              if (activeClip?.videoSrc) toggleVideoPlayback();
-            }}
-            className="text-neutral-400 hover:text-neutral-200 transition-colors"
+            onClick={togglePlayback}
+            disabled={playableClips.length === 0}
+            className="text-neutral-400 hover:text-neutral-200 disabled:text-neutral-700 transition-colors"
           >
             {isPlaying ? (
               <PauseIcon className="w-3.5 h-3.5" />
@@ -1358,7 +1532,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
             )}
           </button>
           <span className="text-[10px] text-neutral-500 tabular-nums">
-            0:00 /{" "}
+            {Math.floor(globalTime / 60)}:
+            {String(Math.floor(globalTime % 60)).padStart(2, "0")}
+            {" / "}
             {Math.floor(totalDuration / 60)}:
             {String(totalDuration % 60).padStart(2, "0")}
           </span>
@@ -1373,80 +1549,115 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           </div>
         </div>
 
-        {/* Clip track */}
-        <div className="flex-1 px-3 py-2 overflow-x-auto flex items-center gap-1.5">
+        {/* Clip track with playhead */}
+        <div
+          ref={timelineTrackRef}
+          className="flex-1 px-3 py-2 relative cursor-pointer"
+          onClick={handleTimelineScrub}
+        >
           {clips.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="h-full flex items-center justify-center">
               <span className="text-[10px] text-neutral-600">
                 Timeline empty — generate your first clip
               </span>
             </div>
           ) : (
-            <>
-              {clips.map((clip, index) => (
-                <button
-                  key={clip.id}
-                  onClick={() => handleClipClick(clip.id)}
-                  className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative group ${
-                    activeClipId === clip.id
-                      ? "border-blue-500"
-                      : clip.status === "error"
-                        ? "border-red-500/50"
-                        : "border-neutral-700 hover:border-neutral-600"
-                  }`}
-                  style={{ aspectRatio: "9/16" }}
-                >
-                  {clip.status === "generating" ? (
-                    <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
-                    </div>
-                  ) : clip.status === "error" ? (
-                    <div className="w-full h-full bg-red-950/30 flex items-center justify-center">
-                      <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
-                    </div>
-                  ) : clip.thumbnail ? (
-                    <img
-                      src={clip.thumbnail}
-                      alt={`Clip ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                      <span className="text-[8px] text-neutral-600">
-                        {index + 1}
+            <div className="h-full flex items-center gap-0.5">
+              {clips.map((clip, index) => {
+                const widthPercent = totalDuration > 0 ? (clip.duration / totalDuration) * 100 : 0;
+                return (
+                  <button
+                    key={clip.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClipClick(clip.id);
+                    }}
+                    className={`h-[70px] rounded-md overflow-hidden border-2 transition-colors relative group flex-shrink-0 ${
+                      activeClipId === clip.id
+                        ? "border-blue-500"
+                        : clip.status === "error"
+                          ? "border-red-500/50"
+                          : "border-neutral-700 hover:border-neutral-600"
+                    }`}
+                    style={{ width: `${Math.max(widthPercent, 3)}%` }}
+                  >
+                    {clip.status === "generating" ? (
+                      <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                        <div className="w-4 h-4 border-2 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
+                      </div>
+                    ) : clip.status === "error" ? (
+                      <div className="w-full h-full bg-red-950/30 flex items-center justify-center">
+                        <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
+                      </div>
+                    ) : clip.thumbnail ? (
+                      <img
+                        src={clip.thumbnail}
+                        alt={`Clip ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                        <span className="text-[8px] text-neutral-600">
+                          {index + 1}
+                        </span>
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                      <span className="text-[8px] text-neutral-300 tabular-nums">
+                        {clip.duration}s
                       </span>
                     </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                    <span className="text-[8px] text-neutral-300 tabular-nums">
-                      {clip.duration}s
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
               {/* Add clip button */}
               <button
-                onClick={handleGenerate}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleGenerate();
+                }}
                 disabled={isGenerating}
                 className="flex-shrink-0 h-[70px] w-[40px] rounded-md border-2 border-dashed border-neutral-700 hover:border-neutral-600 flex items-center justify-center transition-colors"
               >
                 <PlusIcon className="w-4 h-4 text-neutral-600" />
               </button>
-            </>
+
+              {/* Playhead */}
+              {totalDuration > 0 && (
+                <div
+                  className="absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none z-10"
+                  style={{
+                    left: `calc(${(globalTime / totalDuration) * 100}% + 12px)`, // 12px = px-3 padding
+                  }}
+                >
+                  {/* Playhead knob */}
+                  <div className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-blue-500 rounded-full shadow-sm" />
+                </div>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Time axis */}
-        <div className="h-[20px] px-3 border-t border-neutral-800/50 flex items-center">
-          <div className="flex-1 relative">
-            {clips.length > 0 && (
-              <div className="flex">
+        {/* Scrubber bar / time axis */}
+        <div className="h-[20px] px-3 border-t border-neutral-800/50">
+          {totalDuration > 0 ? (
+            <div
+              className="h-full relative cursor-pointer"
+              onClick={handleTimelineScrub}
+            >
+              {/* Progress fill */}
+              <div
+                className="absolute top-0 left-0 bottom-0 bg-blue-600/20 rounded-sm"
+                style={{ width: `${(globalTime / totalDuration) * 100}%` }}
+              />
+              {/* Time labels */}
+              <div className="absolute inset-0 flex items-center">
                 {Array.from({ length: Math.ceil(totalDuration) + 1 }).map(
                   (_, i) => (
                     <div
                       key={i}
                       className="flex-shrink-0"
-                      style={{ width: "20px" }}
+                      style={{ width: `${(1 / totalDuration) * 100}%` }}
                     >
                       {i % 5 === 0 && (
                         <span className="text-[8px] text-neutral-600 tabular-nums">
@@ -1457,8 +1668,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   )
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="h-full" />
+          )}
         </div>
       </div>
     </div>
