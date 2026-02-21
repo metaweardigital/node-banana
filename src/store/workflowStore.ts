@@ -158,9 +158,11 @@ interface WorkflowStore {
   openModalCount: number;
   isModalOpen: boolean;
   showQuickstart: boolean;
+  appMode: "workflow" | "scenario";
   incrementModalCount: () => void;
   decrementModalCount: () => void;
   setShowQuickstart: (show: boolean) => void;
+  setAppMode: (mode: "workflow" | "scenario") => void;
 
   // Activity log (in-app console panel)
   activityLog: LogEntry[];
@@ -333,6 +335,7 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
   openModalCount: 0,
   isModalOpen: false,
   showQuickstart: true,
+  appMode: "workflow" as "workflow" | "scenario",
   activityLog: [],
   activityLogOpen: false,
   isRunning: false,
@@ -402,6 +405,11 @@ export const useWorkflowStore = create<WorkflowStore>((set, get) => ({
 
   setShowQuickstart: (show: boolean) => {
     set({ showQuickstart: show });
+  },
+
+  setAppMode: (mode: "workflow" | "scenario") => {
+    localStorage.setItem("node-banana-app-mode", mode);
+    set({ appMode: mode });
   },
 
   addNode: (type: NodeType, position: XYPosition, initialData?: Partial<WorkflowNodeData>) => {

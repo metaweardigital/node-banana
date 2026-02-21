@@ -1586,6 +1586,10 @@ export function WorkflowCanvas() {
             setShowQuickstart(false);
             setShowNewProjectSetup(true);
           }}
+          onScenarioMode={() => {
+            setShowQuickstart(false);
+            useWorkflowStore.getState().setAppMode("scenario");
+          }}
         />
       )}
 

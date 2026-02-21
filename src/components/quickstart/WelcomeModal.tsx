@@ -11,12 +11,14 @@ interface WelcomeModalProps {
   onWorkflowGenerated: (workflow: WorkflowFile) => void;
   onClose: () => void;
   onNewProject: () => void;
+  onScenarioMode: () => void;
 }
 
 export function WelcomeModal({
   onWorkflowGenerated,
   onClose,
   onNewProject,
+  onScenarioMode,
 }: WelcomeModalProps) {
   const [currentView, setCurrentView] = useState<QuickstartView>("initial");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +94,7 @@ export function WelcomeModal({
             onSelectTemplates={handleSelectTemplates}
             onSelectVibe={handleSelectVibe}
             onSelectLoad={handleSelectLoad}
+            onSelectScenario={onScenarioMode}
           />
         )}
         {currentView === "templates" && (
