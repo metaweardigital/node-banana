@@ -15,7 +15,6 @@ import {
 import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
   getProviderSettings,
-  saveProviderSettings,
 } from "@/store/utils/localStorage";
 
 // ============================================================================
@@ -312,9 +311,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const [projectError, setProjectError] = useState<string | null>(null);
   const [isBrowsing, setIsBrowsing] = useState(false);
 
-  // API key
+  // API key — read from provider settings (same as workflow editor), falls back to server .env
   const [xaiApiKey, setXaiApiKey] = useState<string | null>(null);
-  const [apiKeyInput, setApiKeyInput] = useState("");
 
   // Input photo
   const [inputImage, setInputImage] = useState<string | null>(null);
@@ -521,19 +519,6 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     resetState();
   }, [resetState]);
 
-  const handleSaveApiKey = useCallback(() => {
-    if (!apiKeyInput.trim()) return;
-    const settings = getProviderSettings();
-    settings.providers.xai = {
-      ...settings.providers.xai,
-      apiKey: apiKeyInput.trim(),
-      enabled: true,
-    };
-    saveProviderSettings(settings);
-    setXaiApiKey(apiKeyInput.trim());
-    setApiKeyInput("");
-  }, [apiKeyInput]);
-
   // Save uploaded image to project inputs/ folder on disk
   const saveInputImage = useCallback(async (dataUrl: string) => {
     if (!activeProject) {
@@ -622,10 +607,6 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       setGenerationError("Prompt is required");
       return;
     }
-    if (!xaiApiKey) {
-      setGenerationError("xAI API key not configured — add it below the Generate button");
-      return;
-    }
 
     setIsGenerating(true);
     setGenerationError(null);
@@ -668,12 +649,14 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         }
       }
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (xaiApiKey) headers["X-XAI-Key"] = xaiApiKey;
+
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-XAI-Key": xaiApiKey,
-        },
+        headers,
         body: JSON.stringify({
           prompt: fullPrompt,
           images: imageForApi ? [imageForApi] : [],
@@ -1479,37 +1462,6 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               )}
             </button>
 
-            {/* API Key config */}
-            {!xaiApiKey && (
-              <div className="mt-3 p-2.5 bg-neutral-800/50 rounded-lg border border-neutral-700/50">
-                <span className="text-[10px] text-neutral-500 block mb-1.5">
-                  xAI API Key required
-                </span>
-                <div className="flex gap-1.5">
-                  <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder="xai-..."
-                    className="flex-1 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-[10px] text-neutral-300 placeholder:text-neutral-600 focus:outline-none focus:border-neutral-600"
-                  />
-                  <button
-                    onClick={handleSaveApiKey}
-                    className="px-2 py-1 bg-neutral-700 hover:bg-neutral-600 rounded text-[10px] text-neutral-300 transition-colors"
-                  >
-                    Save
-                  </button>
-                </div>
-                <a
-                  href="https://console.x.ai/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[9px] text-blue-500 hover:text-blue-400 mt-1 block"
-                >
-                  Get key from console.x.ai
-                </a>
-              </div>
-            )}
           </div>
         </div>
       </div>
