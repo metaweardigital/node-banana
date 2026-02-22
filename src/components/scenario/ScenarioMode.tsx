@@ -70,6 +70,7 @@ const CONTINUITY_MODIFIERS = [
   { id: "consistent-lighting", label: "Consistent light", prompt: "maintain exact same brightness, exposure, color temperature, and lighting throughout, no darkening or brightening" },
   { id: "smooth-motion", label: "Smooth motion", prompt: "smooth continuous motion, no sudden movements" },
   { id: "eye-contact", label: "Eye contact", prompt: "person looking directly at camera, direct eye contact with viewer, facing the camera" },
+  { id: "empty-scene", label: "Empty scene", prompt: "no other people, no bystanders, no pedestrians, no other vehicles, no moving objects in background, empty surroundings, subject is alone in the scene" },
 ] as const;
 
 const ANGLE_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. DO NOT alter the person's appearance in any way. Photorealistic, sharp details";
@@ -1720,48 +1721,63 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* Main 3-column area */}
       <div className="flex-1 flex min-h-0">
         {/* ================================================================ */}
-        {/* LEFT PANEL - Input Photo */}
+        {/* LEFT PANEL - Collapsed after upload, full when no image */}
         {/* ================================================================ */}
-        <div className="w-[350px] flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col">
-          <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
+        {inputImage ? (
+          <div className="w-[48px] flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col items-center py-2 gap-3">
             <button
               onClick={onBack}
-              className="flex items-center gap-1 text-[10px] text-neutral-500 hover:text-neutral-200 transition-colors"
+              className="text-neutral-500 hover:text-neutral-200 transition-colors"
+              title="Back"
             >
-              <ArrowLeftIcon className="w-3 h-3" />
-              Back
+              <ArrowLeftIcon className="w-4 h-4" />
             </button>
-            <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">
-              Input
-            </span>
             <button
               onClick={handleNewScenario}
-              className="flex items-center gap-1 text-[10px] text-neutral-500 hover:text-neutral-200 transition-colors"
+              className="text-neutral-500 hover:text-neutral-200 transition-colors"
+              title="New scenario"
             >
-              <PlusIcon className="w-3 h-3" />
-              New
+              <PlusIcon className="w-4 h-4" />
             </button>
+            <div className="flex-1" />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-neutral-500 hover:text-neutral-200 transition-colors"
+              title="Upload new image"
+            >
+              <ArrowUpTrayIcon className="w-4 h-4" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
           </div>
+        ) : (
+          <div className="w-[350px] flex-shrink-0 bg-neutral-900 border-r border-neutral-800 flex flex-col">
+            <div className="px-3 py-2 border-b border-neutral-800 flex items-center justify-between">
+              <button
+                onClick={onBack}
+                className="flex items-center gap-1 text-[10px] text-neutral-500 hover:text-neutral-200 transition-colors"
+              >
+                <ArrowLeftIcon className="w-3 h-3" />
+                Back
+              </button>
+              <span className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">
+                Input
+              </span>
+              <button
+                onClick={handleNewScenario}
+                className="flex items-center gap-1 text-[10px] text-neutral-500 hover:text-neutral-200 transition-colors"
+              >
+                <PlusIcon className="w-3 h-3" />
+                New
+              </button>
+            </div>
 
-          <div className="flex-1 px-3 py-2 flex flex-col min-h-0">
-            {inputImage ? (
-              <div className="flex-1 flex flex-col items-center min-h-0">
-                <div className="flex-1 min-h-0 w-full flex items-center justify-center">
-                  <img
-                    src={inputImage}
-                    alt="Input"
-                    className="max-w-full max-h-full rounded-lg"
-                    style={{ aspectRatio: "9/16", objectFit: "cover" }}
-                  />
-                </div>
-                <button
-                  onClick={() => { setInputImage(null); setInputImagePath(null); }}
-                  className="mt-2 w-full py-1.5 text-xs text-neutral-500 hover:text-neutral-300 border border-neutral-800 hover:border-neutral-700 rounded-md transition-colors flex-shrink-0"
-                >
-                  Clear
-                </button>
-              </div>
-            ) : (
+            <div className="flex-1 px-3 py-2 flex flex-col min-h-0">
               <div
                 className="flex-1 flex flex-col items-center justify-center rounded-xl cursor-pointer transition-colors bg-neutral-800/30 border-2 border-dashed border-neutral-700 hover:border-neutral-600"
                 onClick={() => fileInputRef.current?.click()}
@@ -1776,17 +1792,17 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   or click to upload
                 </span>
               </div>
-            )}
-          </div>
+            </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
-        </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </div>
+        )}
 
         {/* ================================================================ */}
         {/* CENTER PANEL - Video Preview */}
