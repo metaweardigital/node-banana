@@ -215,8 +215,6 @@ export async function generateWithXai(
   }
   if (imageForVideo) {
     payload.image = { url: imageForVideo };
-    // Remove aspect_ratio for I2V to preserve native image aspect
-    delete payload.aspect_ratio;
   }
 
   console.log(`[API:${requestId}] xAI video payload keys: ${Object.keys(payload).join(", ")}`);
