@@ -26,6 +26,7 @@ import {
   FilmIcon,
   ArrowUturnLeftIcon,
   ArrowRightIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
@@ -62,88 +63,220 @@ interface Clip {
 // EvasionTechnique type imported from @/utils/promptEvasion
 const TECHNIQUES = Object.entries(TECHNIQUE_LABELS) as [EvasionTechnique, string][];
 
-const CONTINUITY_MODIFIERS = [
-  { id: "static-camera", label: "Static camera", prompt: "static camera, no camera movement" },
-  { id: "slow-pan", label: "Slow pan", prompt: "slow smooth pan" },
-  { id: "slow-zoom", label: "Slow zoom in", prompt: "slow subtle zoom in" },
-  { id: "no-cuts", label: "No cuts", prompt: "no scene cuts, no transitions" },
-  { id: "consistent-lighting", label: "Consistent light", prompt: "maintain exact same brightness, exposure, color temperature, and lighting throughout, no darkening or brightening" },
-  { id: "smooth-motion", label: "Smooth motion", prompt: "smooth continuous motion, no sudden movements" },
-  { id: "eye-contact", label: "Eye contact", prompt: "person looking directly at camera, direct eye contact with viewer, facing the camera" },
-  { id: "empty-scene", label: "Empty scene", prompt: "no other people, no bystanders, no pedestrians, no other vehicles, no moving objects in background, empty surroundings, subject is alone in the scene" },
-] as const;
+interface CinematicOption {
+  id: string;
+  label: string;
+  prompt: string;
+}
+
+interface CinematicGroup {
+  id: string;
+  label: string;
+  multiSelect: boolean;
+  options: CinematicOption[];
+}
+
+interface CinematicState {
+  camera: string | null;
+  lighting: string | null;
+  lens: string | null;
+  mood: string | null;
+  color: string | null;
+  body: string | null;
+  scene: Set<string>;
+}
+
+const CINEMATIC_GROUPS: CinematicGroup[] = [
+  {
+    id: "camera",
+    label: "Camera",
+    multiSelect: false,
+    options: [
+      { id: "static", label: "Static", prompt: "static camera, no camera movement, locked shot" },
+      { id: "push-in", label: "Slow push in", prompt: "slow push in toward subject, dolly in, gradual" },
+      { id: "pull-back", label: "Pull back", prompt: "slow pull back from subject, dolly out, revealing surroundings" },
+      { id: "slow-pan", label: "Slow pan", prompt: "slow smooth pan, gentle horizontal camera movement" },
+      { id: "tracking", label: "Tracking", prompt: "tracking shot following the subject, camera moves alongside, steadicam" },
+      { id: "orbit", label: "Orbit", prompt: "slow orbit shot circling around the subject, arc movement" },
+      { id: "crane", label: "Crane", prompt: "crane shot, sweeping vertical camera movement, boom" },
+      { id: "handheld", label: "Handheld", prompt: "handheld camera, slight natural camera shake, raw documentary feel" },
+      { id: "steadicam", label: "Steadicam", prompt: "steadicam shot, smooth gliding movement, elegant tracking" },
+    ],
+  },
+  {
+    id: "lighting",
+    label: "Lighting",
+    multiSelect: false,
+    options: [
+      { id: "golden-hour", label: "Golden hour", prompt: "golden hour warm sunset lighting, magic hour, rim light" },
+      { id: "rim-light", label: "Rim light", prompt: "rim lighting, edge light, glowing backlit outline, subject separation" },
+      { id: "soft-diffused", label: "Soft diffused", prompt: "soft diffused light, gentle even lighting, flattering" },
+      { id: "low-key", label: "Low key", prompt: "low key dramatic lighting, deep shadows, high contrast, moody" },
+      { id: "high-key", label: "High key", prompt: "high key bright even lighting, minimal shadows, clean" },
+      { id: "neon", label: "Neon", prompt: "neon lighting, neon glow, colorful urban night light" },
+      { id: "volumetric", label: "Volumetric", prompt: "volumetric lighting, god rays, light rays through atmosphere" },
+      { id: "natural", label: "Natural", prompt: "natural available light, realistic motivated lighting" },
+      { id: "candlelight", label: "Candlelight", prompt: "candlelight, warm flickering intimate light" },
+    ],
+  },
+  {
+    id: "lens",
+    label: "Lens",
+    multiSelect: false,
+    options: [
+      { id: "shallow-dof", label: "Shallow DoF", prompt: "shallow depth of field, beautiful bokeh, blurred background, subject isolation" },
+      { id: "deep-focus", label: "Deep focus", prompt: "deep focus, everything in focus, sharp throughout" },
+      { id: "85mm", label: "85mm portrait", prompt: "shot on 85mm lens, portrait telephoto compression, flattering" },
+      { id: "35mm", label: "35mm wide", prompt: "shot on 35mm wide angle lens, natural cinematic perspective" },
+      { id: "anamorphic", label: "Anamorphic", prompt: "anamorphic widescreen, oval bokeh, cinematic lens flare" },
+      { id: "tilt-shift", label: "Tilt-shift", prompt: "tilt-shift miniature effect, selective focus plane" },
+    ],
+  },
+  {
+    id: "mood",
+    label: "Mood",
+    multiSelect: false,
+    options: [
+      { id: "misty", label: "Misty", prompt: "misty atmospheric haze, soft diffused environment" },
+      { id: "foggy", label: "Foggy", prompt: "dense fog, low visibility, mysterious atmosphere" },
+      { id: "rainy", label: "Rainy", prompt: "rain, wet surfaces, rain reflections, moody weather" },
+      { id: "moody", label: "Moody", prompt: "moody dark atmosphere, brooding, somber tone" },
+      { id: "ethereal", label: "Ethereal", prompt: "ethereal dreamlike atmosphere, soft glowing, otherworldly" },
+      { id: "gritty", label: "Gritty", prompt: "gritty raw atmosphere, urban texture, harsh reality" },
+      { id: "dreamy", label: "Dreamy", prompt: "dreamy soft focus atmosphere, romantic haze, gentle" },
+      { id: "serene", label: "Serene", prompt: "serene peaceful calm atmosphere, tranquil, still" },
+    ],
+  },
+  {
+    id: "color",
+    label: "Color",
+    multiSelect: false,
+    options: [
+      { id: "warm-tones", label: "Warm tones", prompt: "warm color palette, amber tones, golden warm tones" },
+      { id: "cool-tones", label: "Cool tones", prompt: "cool blue tones, cold color grading, teal shadows" },
+      { id: "desaturated", label: "Desaturated", prompt: "muted colors, desaturated, faded tones, subdued palette" },
+      { id: "vibrant", label: "Vibrant", prompt: "vivid colors, saturated, rich color palette, punchy colors" },
+      { id: "teal-orange", label: "Teal & Orange", prompt: "teal and orange color grading, blockbuster color palette" },
+      { id: "pastel", label: "Pastel", prompt: "pastel colors, soft muted pastels, light airy tones" },
+      { id: "monochrome", label: "Monochrome", prompt: "black and white, monochromatic, grayscale" },
+      { id: "film-noir", label: "Film noir", prompt: "film noir style, high contrast black and white, moody shadows" },
+    ],
+  },
+  {
+    id: "body",
+    label: "Body",
+    multiSelect: false,
+    options: [
+      { id: "frozen", label: "Frozen pose", prompt: "the person is FROZEN like a statue, completely rigid, ZERO movement, no pose change, no weight shift, no head turn, no arm movement, body is a single solid unit, like a mannequin" },
+      { id: "natural", label: "Natural pose", prompt: "the person maintains their general pose with subtle natural adjustments allowed, slight weight shift or head tilt is acceptable, but no major pose changes, no walking, no sitting down, no large movements" },
+      { id: "action", label: "Action allowed", prompt: "the person may change pose and perform actions freely, movement is allowed" },
+    ],
+  },
+  {
+    id: "scene",
+    label: "Scene",
+    multiSelect: true,
+    options: [
+      { id: "smooth-motion", label: "Smooth motion", prompt: "smooth continuous motion, no sudden movements" },
+      { id: "no-cuts", label: "No cuts", prompt: "no scene cuts, no transitions" },
+      { id: "consistent-light", label: "Consistent light", prompt: "maintain exact same brightness, exposure, color temperature, and lighting throughout, no darkening or brightening" },
+      { id: "eye-contact", label: "Eye contact", prompt: "person looking directly at camera, direct eye contact with viewer, facing the camera" },
+      { id: "empty-scene", label: "Empty scene", prompt: "no other people, no bystanders, no pedestrians, no other vehicles, no moving objects in background, empty surroundings, subject is alone in the scene" },
+    ],
+  },
+];
 
 const ANGLE_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. DO NOT alter the person's appearance in any way. Photorealistic, sharp details";
 
+// Lighter lock for custom prompts — preserves identity & location but allows pose/action changes
+const CUSTOM_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. Photorealistic, sharp details";
+
 const ANGLE_PRESETS = [
+  // --- Enhance ---
   {
     id: "upscale",
     label: "Upscale",
+    group: "Enhance",
     prompt: `Upscale this image. Keep absolutely everything identical — same composition, same framing, same person, same pose, same background. Only enhance resolution and sharpness. ${ANGLE_LOCK}`,
   },
   {
     id: "clean",
     label: "Clean up",
+    group: "Enhance",
     prompt: `Recreate this exact image with higher quality. Same camera angle, same framing, same composition. Remove artifacts, noise, and compression only. ${ANGLE_LOCK}`,
   },
+  // --- Framing ---
   {
     id: "closeup",
     label: "Close-up",
+    group: "Framing",
     prompt: `Close-up shot focusing on the face and upper body. Camera moves closer to the subject but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "wide",
     label: "Wide shot",
+    group: "Framing",
     prompt: `Pull the camera back to show more of the SAME space. Wider framing of the EXACT same location visible in the input. DO NOT invent new surroundings — only reveal more of what is already there. ${ANGLE_LOCK}`,
   },
   {
+    id: "medium",
+    label: "Medium shot",
+    group: "Framing",
+    prompt: `Medium shot framing the subject from the waist up. Classic conversational framing. Camera stays in the EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "extreme-closeup",
+    label: "Extreme CU",
+    group: "Framing",
+    prompt: `Single extreme close-up of the subject's eyes and nose area. One continuous image, NOT a collage, NOT split, NOT multiple views. Crop tightly into the face from the input image. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  // --- Angle ---
+  {
     id: "low",
     label: "Low angle",
+    group: "Angle",
     prompt: `Low angle shot looking upward at the subject from below. Camera tilts up but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "high",
     label: "High angle",
+    group: "Angle",
     prompt: `High angle shot looking down at the subject from above. Camera tilts down but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "profile",
     label: "Profile",
+    group: "Angle",
     prompt: `Side profile view of the subject, 90-degree side angle. Camera rotates around the subject but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "over-shoulder",
     label: "Over shoulder",
+    group: "Angle",
     prompt: `Over-the-shoulder perspective of the subject. Camera moves behind the subject but stays in the EXACT same location. Slight depth of field. ${ANGLE_LOCK}`,
-  },
-  {
-    id: "medium",
-    label: "Medium shot",
-    prompt: `Medium shot framing the subject from the waist up. Classic conversational framing. Camera stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "dutch",
     label: "Dutch angle",
+    group: "Angle",
     prompt: `Rotate the entire image 15 degrees clockwise. Do NOT regenerate or reimagine anything. Just tilt/rotate the existing image. ${ANGLE_LOCK}`,
   },
   {
     id: "pov",
     label: "POV",
+    group: "Angle",
     prompt: `First-person point-of-view shot showing what the subject is looking at. Camera positioned at the subject's eye level facing the direction they face. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "behind",
     label: "Behind",
+    group: "Angle",
     prompt: `Camera positioned directly behind the subject, looking forward over their head or shoulder into the scene. EXACT same location. ${ANGLE_LOCK}`,
-  },
-  {
-    id: "extreme-closeup",
-    label: "Extreme CU",
-    prompt: `Single extreme close-up of the subject's eyes and nose area. One continuous image, NOT a collage, NOT split, NOT multiple views. Crop tightly into the face from the input image. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "mirror",
     label: "Mirror flip",
+    group: "Angle",
     prompt: `Horizontally mirror/flip this exact image. Single image, NOT a collage, NOT side-by-side. Everything is reversed left-to-right but otherwise completely identical. ${ANGLE_LOCK}`,
   },
   // --- Orbit Camera (camera moves, person stays FROZEN) ---
@@ -176,25 +309,43 @@ const ANGLE_PRESETS = [
     id: "person-orbit-left-45",
     label: "Person turn left 45°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-right-45",
     label: "Person turn right 45°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-left-90",
     label: "Person turn left 90°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable, showing their right side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable, showing their right side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-right-90",
     label: "Person turn right 90°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable, showing their left side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable, showing their left side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "person-orbit-left-135",
+    label: "Person turn left 135°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 135 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable, showing mostly their back with a slight right-side view. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "person-orbit-right-135",
+    label: "Person turn right 135°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 135 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable, showing mostly their back with a slight left-side view. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "person-orbit-180",
+    label: "Person turn 180°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 180 degrees, turning completely around to face away from the camera, showing their back. Like a mannequin on a turntable rotated halfway. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
   },
 ] as const;
 
@@ -221,6 +372,9 @@ const ANGLE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGEleme
   "person-orbit-right-45": ArrowRightIcon,
   "person-orbit-left-90": ArrowLeftIcon,
   "person-orbit-right-90": ArrowRightIcon,
+  "person-orbit-left-135": ArrowLeftIcon,
+  "person-orbit-right-135": ArrowRightIcon,
+  "person-orbit-180": ArrowUturnLeftIcon,
 };
 
 interface AngleVariant {
@@ -261,7 +415,16 @@ interface ScenarioStateDisk {
   prompt: string;
   evasionTechnique: EvasionTechnique;
   continuityEnabled: boolean;
-  activeModifiers: string[];
+  activeModifiers?: string[];
+  cinematic?: {
+    camera?: string | null;
+    lighting?: string | null;
+    lens?: string | null;
+    mood?: string | null;
+    color?: string | null;
+    body?: string | null;
+    scene?: string[];
+  };
   duration: number;
   aspectRatio: string;
   resolution: string;
@@ -284,6 +447,67 @@ interface ScenarioStateDisk {
     status: "idle" | "generating" | "done" | "error";
   }>;
   activeClipId: string | null;
+}
+
+// Helper: composite two images side by side (main left, reference right) for identity context
+async function compositeWithReference(mainSrc: string, refSrc: string): Promise<string> {
+  const loadImg = (src: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+
+  const [mainImg, refImg] = await Promise.all([loadImg(mainSrc), loadImg(refSrc)]);
+
+  // Reference image takes 30% of width, main takes 70%
+  const refScale = 0.3;
+  const mainScale = 1 - refScale;
+  const height = Math.max(mainImg.height, refImg.height);
+  const mainW = Math.round(height * (mainImg.width / mainImg.height) / mainScale);
+  const totalW = Math.round(mainW);
+  const mainDrawW = Math.round(totalW * mainScale);
+  const refDrawW = totalW - mainDrawW;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = totalW;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  // Black background
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, totalW, height);
+
+  // Draw main image on left
+  ctx.drawImage(mainImg, 0, 0, mainDrawW, height);
+
+  // Draw white separator line
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(mainDrawW - 1, 0, 2, height);
+
+  // Draw reference image on right, centered vertically
+  const refAspect = refImg.width / refImg.height;
+  const refDrawH = Math.min(height, refDrawW / refAspect);
+  const refY = (height - refDrawH) / 2;
+  ctx.drawImage(refImg, mainDrawW, refY, refDrawW, refDrawH);
+
+  return canvas.toDataURL("image/png");
+}
+
+// Helper: resolve image source to a data URL for API calls
+async function resolveToDataUrl(src: string): Promise<string> {
+  if (src.startsWith("data:")) return src;
+  if (src.startsWith("/api/") || src.startsWith("http")) {
+    const res = await fetch(src);
+    const blob = await res.blob();
+    return new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  }
+  return src;
 }
 
 // Helper: build API URL from absolute file path
@@ -320,12 +544,11 @@ interface LoadedScenarioState {
   inputAngleVariants: AngleVariant[];
   prompt: string;
   evasionTechnique: EvasionTechnique;
-  continuityEnabled: boolean;
-  activeModifiers: string[];
+  cinematicEnabled: boolean;
+  cinematicState: CinematicState;
   duration: number;
   aspectRatio: string;
   resolution: string;
-  useLastFrame: boolean;
   clips: Clip[];
   activeClipId: string | null;
 }
@@ -388,6 +611,31 @@ async function loadScenarioStateFromDisk(directoryPath: string): Promise<LoadedS
       status: av.status,
     }));
 
+    const cinematicState: CinematicState = disk.cinematic
+      ? {
+          camera: disk.cinematic.camera ?? null,
+          lighting: disk.cinematic.lighting ?? null,
+          lens: disk.cinematic.lens ?? null,
+          mood: disk.cinematic.mood ?? null,
+          color: disk.cinematic.color ?? null,
+          body: disk.cinematic.body ?? "frozen",
+          scene: new Set(disk.cinematic.scene ?? []),
+        }
+      : {
+          // Backwards compat from old activeModifiers
+          camera: (disk.activeModifiers ?? []).includes("static-camera") ? "static" : null,
+          lighting: null,
+          lens: null,
+          mood: null,
+          color: null,
+          body: "frozen",
+          scene: new Set(
+            (disk.activeModifiers ?? []).filter((m) =>
+              ["smooth-motion", "no-cuts", "consistent-lighting", "eye-contact", "empty-scene"].includes(m)
+            ).map((m) => m === "consistent-lighting" ? "consistent-light" : m)
+          ),
+        };
+
     return {
       inputImage,
       inputImagePath,
@@ -396,12 +644,11 @@ async function loadScenarioStateFromDisk(directoryPath: string): Promise<LoadedS
       inputAngleVariants,
       prompt: disk.prompt ?? "",
       evasionTechnique: disk.evasionTechnique ?? "zwsp",
-      continuityEnabled: disk.continuityEnabled ?? true,
-      activeModifiers: disk.activeModifiers ?? ["static-camera", "smooth-motion"],
+      cinematicEnabled: disk.continuityEnabled ?? true,
+      cinematicState,
       duration: disk.duration ?? 12,
       aspectRatio: disk.aspectRatio ?? "9:16",
       resolution: disk.resolution ?? "480p",
-      useLastFrame: disk.useLastFrame ?? true,
       clips,
       activeClipId: disk.activeClipId ?? null,
     };
@@ -420,8 +667,8 @@ function saveScenarioStateToDisk(
     inputAngleVariants: AngleVariant[];
     prompt: string;
     evasionTechnique: EvasionTechnique;
-    continuityEnabled: boolean;
-    activeModifiers: string[];
+    cinematicEnabled: boolean;
+    cinematicState: CinematicState;
     duration: number;
     aspectRatio: string;
     resolution: string;
@@ -445,8 +692,16 @@ function saveScenarioStateToDisk(
         })),
       prompt: state.prompt,
       evasionTechnique: state.evasionTechnique,
-      continuityEnabled: state.continuityEnabled,
-      activeModifiers: state.activeModifiers,
+      continuityEnabled: state.cinematicEnabled,
+      cinematic: {
+        camera: state.cinematicState.camera,
+        lighting: state.cinematicState.lighting,
+        lens: state.cinematicState.lens,
+        mood: state.cinematicState.mood,
+        color: state.cinematicState.color,
+        body: state.cinematicState.body,
+        scene: Array.from(state.cinematicState.scene),
+      },
       duration: state.duration,
       aspectRatio: state.aspectRatio,
       resolution: state.resolution,
@@ -590,17 +845,24 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     useState<EvasionTechnique>("zwsp");
   const [evasionOutput, setEvasionOutput] = useState<string | null>(null);
 
-  // Continuity
-  const [continuityEnabled, setContinuityEnabled] = useState(true);
-  const [activeModifiers, setActiveModifiers] = useState<Set<string>>(new Set(["static-camera", "smooth-motion", "consistent-lighting"]));
+  // Cinematic
+  const [cinematicEnabled, setCinematicEnabled] = useState(true);
+  const [cinematicState, setCinematicState] = useState<CinematicState>({
+    camera: "static",
+    lighting: null,
+    lens: null,
+    mood: null,
+    color: null,
+    body: "frozen",
+    scene: new Set(["smooth-motion", "consistent-light"]),
+  });
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [faceReferenceEnabled, setFaceReferenceEnabled] = useState(true);
 
   // Parameters
   const [duration, setDuration] = useState(12);
   const [aspectRatio, setAspectRatio] = useState("9:16");
   const [resolution, setResolution] = useState("480p");
-
-  // Use last frame
-  const [useLastFrame, setUseLastFrame] = useState(true);
 
   // Timeline
   const [clips, setClips] = useState<Clip[]>([]);
@@ -619,11 +881,14 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const [angleSubmenu, setAngleSubmenu] = useState<string | null>(null);
   const [angleSubmenuPos, setAngleSubmenuPos] = useState<{ x: number; y: number } | null>(null);
   const [isDraggingToTimeline, setIsDraggingToTimeline] = useState(false);
+  const [showCustomAngleInput, setShowCustomAngleInput] = useState(false);
+  const [customAnglePrompt, setCustomAnglePrompt] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null); // standalone image preview (frame/variant click)
 
   // Generating state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const generateAbortRef = useRef<AbortController | null>(null);
 
   // Export state
   const { stitchVideos, progress: stitchProgress } = useStitchVideos();
@@ -703,12 +968,11 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         } else {
           setEvasionOutput(null);
         }
-        setContinuityEnabled(saved.continuityEnabled ?? true);
-        setActiveModifiers(new Set(saved.activeModifiers ?? ["static-camera", "smooth-motion"]));
+        setCinematicEnabled(saved.cinematicEnabled ?? true);
+        setCinematicState(saved.cinematicState);
         setDuration(saved.duration ?? 12);
         setAspectRatio(saved.aspectRatio ?? "9:16");
         setResolution(saved.resolution ?? "480p");
-        setUseLastFrame(saved.useLastFrame ?? true);
         setClips(saved.clips ?? []);
         setActiveClipId(saved.activeClipId ?? null);
       } else {
@@ -727,12 +991,19 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     setPrompt("");
     setEvasionTechnique("zwsp");
     setEvasionOutput(null);
-    setContinuityEnabled(true);
-    setActiveModifiers(new Set(["static-camera", "smooth-motion", "consistent-lighting"]));
+    setCinematicEnabled(true);
+    setCinematicState({
+      camera: "static",
+      lighting: null,
+      lens: null,
+      mood: null,
+      color: null,
+      body: "frozen",
+      scene: new Set(["smooth-motion", "consistent-light"]),
+    });
     setDuration(12);
     setAspectRatio("9:16");
     setResolution("480p");
-    setUseLastFrame(true);
     setClips([]);
     setActiveClipId(null);
     setGenerationError(null);
@@ -788,16 +1059,16 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       inputAngleVariants,
       prompt,
       evasionTechnique,
-      continuityEnabled,
-      activeModifiers: Array.from(activeModifiers),
+      cinematicEnabled,
+      cinematicState,
       duration,
       aspectRatio,
       resolution,
-      useLastFrame,
+      useLastFrame: true,
       clips,
       activeClipId,
     });
-  }, [isLoaded, activeProject, inputImagePath, originalInputImagePath, inputAngleVariants, prompt, evasionTechnique, continuityEnabled, activeModifiers, duration, aspectRatio, resolution, useLastFrame, clips, activeClipId]);
+  }, [isLoaded, activeProject, inputImagePath, originalInputImagePath, inputAngleVariants, prompt, evasionTechnique, cinematicEnabled, cinematicState, duration, aspectRatio, resolution, clips, activeClipId]);
 
   // ---- Handlers ----
 
@@ -918,18 +1189,29 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     reader.readAsDataURL(file);
   }, [saveInputImage]);
 
-  // Build the full prompt (evasion output + continuity suffix)
+  // Build the full prompt (evasion output + cinematic suffix)
   const buildFullPrompt = useCallback(() => {
     let result = evasionOutput || prompt;
-    if (continuityEnabled) {
+    if (cinematicEnabled) {
       const parts = [BASE_CONTINUITY];
-      for (const mod of CONTINUITY_MODIFIERS) {
-        if (activeModifiers.has(mod.id)) parts.push(mod.prompt);
+      for (const group of CINEMATIC_GROUPS) {
+        if (group.multiSelect) {
+          for (const opt of group.options) {
+            if (cinematicState.scene.has(opt.id)) parts.push(opt.prompt);
+          }
+        } else {
+          const key = group.id as keyof Omit<CinematicState, "scene">;
+          const activeId = cinematicState[key];
+          if (activeId) {
+            const opt = group.options.find((o) => o.id === activeId);
+            if (opt) parts.push(opt.prompt);
+          }
+        }
       }
       result += ". " + parts.join(", ");
     }
     return result;
-  }, [prompt, evasionOutput, continuityEnabled, activeModifiers]);
+  }, [prompt, evasionOutput, cinematicEnabled, cinematicState]);
 
   // Real xAI video generation
   const handleGenerate = useCallback(async () => {
@@ -940,6 +1222,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
     setIsGenerating(true);
     setGenerationError(null);
+    const abortController = new AbortController();
+    generateAbortRef.current = abortController;
 
     const clipId = `clip-${Date.now()}`;
     const fullPrompt = buildFullPrompt();
@@ -992,6 +1276,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers,
+        signal: abortController.signal,
         body: JSON.stringify({
           prompt: fullPrompt,
           images: imageForApi ? [imageForApi] : [],
@@ -1144,35 +1429,55 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         }
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Generation failed";
-      setGenerationError(errorMsg);
-      // Update clip with error
-      setClips((prev) =>
-        prev.map((c) =>
-          c.id === clipId
-            ? { ...c, status: "error" as const, error: errorMsg }
-            : c
-        )
-      );
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // Cancelled — remove the placeholder clip
+        setClips((prev) => prev.filter((c) => c.id !== clipId));
+        setGenerationError(null);
+      } else {
+        const errorMsg = err instanceof Error ? err.message : "Generation failed";
+        setGenerationError(errorMsg);
+        setClips((prev) =>
+          prev.map((c) =>
+            c.id === clipId
+              ? { ...c, status: "error" as const, error: errorMsg }
+              : c
+          )
+        );
+      }
     } finally {
       setIsGenerating(false);
+      generateAbortRef.current = null;
     }
-  }, [prompt, xaiApiKey, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject, useLastFrame]);
+  }, [prompt, xaiApiKey, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject]);
 
   // Generate an angle variant image from a clip's last frame or a variant image
-  const handleGenerateAngle = useCallback(async (clipId: string, presetId: string, sourceImage?: string) => {
+  const handleGenerateAngle = useCallback(async (clipId: string, presetId: string, sourceImage?: string, customPrompt?: string) => {
     const isInputImage = clipId === "__input__";
     const clip = isInputImage ? null : clips.find((c) => c.id === clipId);
     const imgSrc = sourceImage || (isInputImage ? (originalInputImage || inputImage) : clip?.lastFrame);
     if (!imgSrc) return;
 
-    const preset = ANGLE_PRESETS.find((p) => p.id === presetId);
-    if (!preset) return;
+    const basePreset = presetId === "custom"
+      ? { id: "custom", label: "Custom", group: undefined as string | undefined, prompt: `${customPrompt}. ${CUSTOM_LOCK}` }
+      : ANGLE_PRESETS.find((p) => p.id === presetId);
+    if (!basePreset) return;
+
+    // Inject active Body cinematic prompt for person-related presets
+    let finalPrompt = basePreset.prompt;
+    if (cinematicState.body) {
+      const bodyOpt = CINEMATIC_GROUPS.find((g) => g.id === "body")?.options.find((o) => o.id === cinematicState.body);
+      if (bodyOpt) {
+        finalPrompt += `. ${bodyOpt.prompt}`;
+      }
+    }
+    const preset = { ...basePreset, prompt: finalPrompt };
 
     setAnglePickerClipId(null);
     setAnglePickerPos(null);
     setAnglePickerSourceImage(null);
     setAngleSubmenu(null);
+    setShowCustomAngleInput(false);
+    setCustomAnglePrompt("");
 
     const variantId = `angle-${Date.now()}`;
     const newVariant: AngleVariant = {
@@ -1199,19 +1504,20 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
     try {
       // Resolve source image for API
-      let frameForApi: string;
-      if (imgSrc.startsWith("data:")) {
-        frameForApi = imgSrc;
-      } else if (imgSrc.startsWith("/api/")) {
-        const imgRes = await fetch(imgSrc);
-        const blob = await imgRes.blob();
-        frameForApi = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } else {
-        frameForApi = imgSrc;
+      let frameForApi = await resolveToDataUrl(imgSrc);
+
+      // If we have an original face reference that differs from current source,
+      // composite them side by side so the AI can maintain identity
+      let promptForApi = preset.prompt;
+      const refImage = originalInputImage || inputImage;
+      if (faceReferenceEnabled && refImage && refImage !== imgSrc) {
+        try {
+          const refDataUrl = await resolveToDataUrl(refImage);
+          frameForApi = await compositeWithReference(frameForApi, refDataUrl);
+          promptForApi = `IMPORTANT: The input contains TWO images side by side, separated by a white vertical line. The LARGE image on the LEFT is the scene to edit and transform. The SMALL image on the RIGHT is ONLY a face/identity reference showing what this person looks like from the front — do NOT include it in the output, do NOT generate a split or composite image. Output a SINGLE image that is a transformation of the LEFT scene only, but use the RIGHT face reference to keep the person's exact face and identity. ${promptForApi}`;
+        } catch {
+          // Composite failed — proceed with just the source image
+        }
       }
 
       const headers: Record<string, string> = {
@@ -1223,7 +1529,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         method: "POST",
         headers,
         body: JSON.stringify({
-          prompt: preset.prompt,
+          prompt: promptForApi,
           images: [frameForApi],
           selectedModel: {
             provider: "xai",
@@ -1304,7 +1610,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         );
       }
     }
-  }, [clips, xaiApiKey, activeProject, aspectRatio, originalInputImage, inputImage]);
+  }, [clips, xaiApiKey, activeProject, aspectRatio, originalInputImage, inputImage, cinematicState, faceReferenceEnabled]);
 
   // Stop playback and animation loop
   const stopPlayback = useCallback(() => {
@@ -2011,49 +2317,134 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
             </div>
           </div>
 
-          {/* Continuity */}
+          {/* Controls */}
           <div className="px-3 py-2 border-b border-neutral-800">
             <div className="flex items-center justify-between mb-1">
               <label className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">
-                Continuity
+                Controls
               </label>
               <button
-                onClick={() => setContinuityEnabled(!continuityEnabled)}
+                onClick={() => setCinematicEnabled(!cinematicEnabled)}
                 className={`relative w-7 h-[16px] rounded-full transition-colors ${
-                  continuityEnabled ? "bg-blue-600" : "bg-neutral-700"
+                  cinematicEnabled ? "bg-blue-600" : "bg-neutral-700"
                 }`}
               >
                 <div
                   className={`absolute top-[2px] w-[12px] h-[12px] rounded-full bg-white transition-transform ${
-                    continuityEnabled ? "left-[13px]" : "left-[2px]"
+                    cinematicEnabled ? "left-[13px]" : "left-[2px]"
                   }`}
                 />
               </button>
             </div>
-            {continuityEnabled && (
-              <div className="flex flex-wrap gap-1">
-                {CONTINUITY_MODIFIERS.map((mod) => (
-                  <button
-                    key={mod.id}
-                    onClick={() => {
-                      setActiveModifiers((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(mod.id)) next.delete(mod.id);
-                        else next.add(mod.id);
-                        return next;
-                      });
-                    }}
-                    className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
-                      activeModifiers.has(mod.id)
-                        ? "bg-green-600/30 text-green-400 border border-green-500/40"
-                        : "bg-neutral-800 text-neutral-500 border border-neutral-700 hover:border-neutral-600 hover:text-neutral-400"
-                    }`}
-                  >
-                    {mod.label}
-                  </button>
-                ))}
+            {cinematicEnabled && (
+              <div className="space-y-0.5">
+                {CINEMATIC_GROUPS.map((group) => {
+                  const isExpanded = expandedGroups.has(group.id);
+                  // Compute active label for collapsed state
+                  let activeLabel: string;
+                  if (group.multiSelect) {
+                    const activeIds = Array.from(cinematicState.scene);
+                    const activeOptions = group.options.filter((o) => activeIds.includes(o.id));
+                    activeLabel = activeOptions.length > 0
+                      ? activeOptions.length <= 2
+                        ? activeOptions.map((o) => o.label).join(", ")
+                        : `${activeOptions.length} active`
+                      : "none";
+                  } else {
+                    const key = group.id as keyof Omit<CinematicState, "scene">;
+                    const activeId = cinematicState[key];
+                    const activeOpt = activeId ? group.options.find((o) => o.id === activeId) : null;
+                    activeLabel = activeOpt ? activeOpt.label : "none";
+                  }
+
+                  return (
+                    <div key={group.id}>
+                      <button
+                        onClick={() => setExpandedGroups((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(group.id)) next.delete(group.id);
+                          else next.add(group.id);
+                          return next;
+                        })}
+                        className="flex items-center gap-1 w-full py-0.5 text-left"
+                      >
+                        <ChevronRightIcon
+                          className={`w-3 h-3 text-neutral-500 transition-transform ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
+                        <span className="text-[10px] font-medium text-neutral-400">{group.label}</span>
+                        <span className={`text-[9px] ml-auto ${activeLabel === "none" ? "text-neutral-600" : "text-neutral-400"}`}>
+                          {activeLabel}
+                        </span>
+                      </button>
+                      {isExpanded && (
+                        <div className="flex flex-wrap gap-1 pl-4 pb-1 pt-0.5">
+                          {group.options.map((opt) => {
+                            let isActive: boolean;
+                            if (group.multiSelect) {
+                              isActive = cinematicState.scene.has(opt.id);
+                            } else {
+                              const key = group.id as keyof Omit<CinematicState, "scene">;
+                              isActive = cinematicState[key] === opt.id;
+                            }
+
+                            return (
+                              <button
+                                key={opt.id}
+                                title={opt.prompt}
+                                onClick={() => {
+                                  if (group.multiSelect) {
+                                    setCinematicState((prev) => {
+                                      const next = new Set(prev.scene);
+                                      if (next.has(opt.id)) next.delete(opt.id);
+                                      else next.add(opt.id);
+                                      return { ...prev, scene: next };
+                                    });
+                                  } else {
+                                    const key = group.id as keyof Omit<CinematicState, "scene">;
+                                    setCinematicState((prev) => ({
+                                      ...prev,
+                                      [key]: prev[key] === opt.id ? null : opt.id,
+                                    }));
+                                  }
+                                }}
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                                  isActive
+                                    ? group.multiSelect
+                                      ? "bg-green-600/30 text-green-400 border border-green-500/40"
+                                      : "bg-blue-600/30 text-blue-400 border border-blue-500/40"
+                                    : "bg-neutral-800 text-neutral-500 border border-neutral-700 hover:border-neutral-600 hover:text-neutral-400"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
+          </div>
+
+          {/* Face reference toggle */}
+          <div className="px-3 py-1.5 border-b border-neutral-800 flex items-center justify-between">
+            <span className="text-[10px] text-neutral-400">Face reference (IN image)</span>
+            <button
+              onClick={() => setFaceReferenceEnabled(!faceReferenceEnabled)}
+              className={`relative w-7 h-[16px] rounded-full transition-colors ${
+                faceReferenceEnabled ? "bg-blue-600" : "bg-neutral-700"
+              }`}
+            >
+              <div
+                className={`absolute top-[2px] w-[12px] h-[12px] rounded-full bg-white transition-transform ${
+                  faceReferenceEnabled ? "left-[13px]" : "left-[2px]"
+                }`}
+              />
+            </button>
           </div>
 
           {/* Parameters */}
@@ -2110,32 +2501,30 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               </div>
             </div>
 
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useLastFrame}
-                onChange={(e) => setUseLastFrame(e.target.checked)}
-                className="w-3 h-3 rounded border-neutral-600 bg-neutral-800 text-blue-500 focus:ring-0 focus:ring-offset-0"
-              />
-              <span className="text-[9px] text-neutral-400">Use last frame as input</span>
-            </label>
           </div>
 
           {/* Generate / Regenerate */}
           <div className="px-3 py-2 mt-auto">
             <button
-              onClick={handleGenerate}
-              disabled={isGenerating}
+              onClick={() => {
+                if (isGenerating) {
+                  generateAbortRef.current?.abort();
+                } else {
+                  handleGenerate();
+                }
+              }}
               className={`w-full py-2 rounded text-xs font-medium text-white flex items-center justify-center gap-1.5 transition-colors ${
-                activeClip && activeClip.status !== "generating"
-                  ? "bg-amber-600 hover:bg-amber-500 disabled:bg-amber-600/50"
-                  : "bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50"
-              } disabled:cursor-not-allowed`}
+                isGenerating
+                  ? "bg-red-600 hover:bg-red-500"
+                  : activeClip && activeClip.status !== "generating"
+                    ? "bg-amber-600 hover:bg-amber-500"
+                    : "bg-blue-600 hover:bg-blue-500"
+              }`}
             >
               {isGenerating ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Generating...
+                  <XMarkIcon className="w-4 h-4" />
+                  Cancel
                 </>
               ) : activeClip && activeClip.status !== "generating" ? (
                 <>
@@ -2590,9 +2979,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                 <ArrowRightIcon className="w-3 h-3" />
                               </button>
                               {/* Delete button — top right */}
-                              <div
+                              <button
                                 className="absolute -top-1 -right-1 opacity-0 group-hover/variant:opacity-100 transition-opacity cursor-pointer z-10"
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setClips((prev) =>
                                     prev.map((c) =>
                                       c.id === clip.id
@@ -2605,7 +2995,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                 <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
                                   <XMarkIcon className="w-2.5 h-2.5 text-white" />
                                 </div>
-                              </div>
+                              </button>
                             </div>
                           ) : null}
                         </div>
@@ -2694,60 +3084,102 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* Angle picker dropdown — fixed position to escape overflow clipping */}
       {anglePickerClipId && anglePickerPos && (
         <>
-          <div className="fixed inset-0 z-[60]" onClick={() => { setAnglePickerClipId(null); setAnglePickerPos(null); setAnglePickerSourceImage(null); setAngleSubmenu(null); }} />
+          <div className="fixed inset-0 z-[60]" onClick={() => { setAnglePickerClipId(null); setAnglePickerPos(null); setAnglePickerSourceImage(null); setAngleSubmenu(null); setShowCustomAngleInput(false); setCustomAnglePrompt(""); }} />
           <div
             className="fixed z-[70] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl p-1.5 min-w-[180px] max-h-[70vh] overflow-y-auto"
             style={{ left: anglePickerPos.x, bottom: window.innerHeight - anglePickerPos.y + 4 }}
           >
-            {/* Direct presets (no group) */}
-            {ANGLE_PRESETS.filter((p) => !(p as { group?: string }).group).map((preset) => (
-              <button
-                key={preset.id}
-                onClick={() => handleGenerateAngle(anglePickerClipId, preset.id, anglePickerSourceImage ?? undefined)}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left hover:bg-neutral-700 transition-colors"
-                title={preset.prompt}
-              >
-                {(() => { const Icon = ANGLE_ICONS[preset.id]; return Icon ? <Icon className="w-3.5 h-3.5 text-neutral-400" /> : null; })()}
-                <span className="text-[11px] text-neutral-300">{preset.label}</span>
-              </button>
-            ))}
-            {/* Grouped presets as submenu triggers */}
+            {/* All groups as fly-out submenus */}
             {(() => {
-              const groups = [...new Set(ANGLE_PRESETS.map((p) => (p as { group?: string }).group).filter(Boolean))] as string[];
-              return groups.map((group) => (
-                <div key={group}>
-                  <div className="border-t border-neutral-700 my-1" />
-                  <button
-                    onMouseEnter={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setAngleSubmenu(group);
-                      setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
-                    }}
-                    onClick={(e) => {
-                      if (angleSubmenu === group) {
-                        setAngleSubmenu(null);
-                      } else {
+              const allGroups = ["Enhance", "Framing", "Angle", "Orbit Camera", "Orbit Person"];
+              return allGroups.map((group, gi) => {
+                const presets = ANGLE_PRESETS.filter((p) => (p as { group?: string }).group === group);
+                if (presets.length === 0) return null;
+                return (
+                  <div key={group}>
+                    {gi > 0 && <div className="border-t border-neutral-700 my-1" />}
+                    <button
+                      onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
                         setAngleSubmenu(group);
                         setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
+                      }}
+                      onClick={(e) => {
+                        if (angleSubmenu === group) {
+                          setAngleSubmenu(null);
+                        } else {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setAngleSubmenu(group);
+                          setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors ${
+                        angleSubmenu === group ? "bg-neutral-700" : "hover:bg-neutral-700"
+                      }`}
+                    >
+                      <span className="text-[11px] text-neutral-300 font-medium">{group}</span>
+                      <ArrowRightIcon className="w-3 h-3 text-neutral-500" />
+                    </button>
+                  </div>
+                );
+              });
+            })()}
+            {/* Custom prompt option */}
+            <div className="border-t border-neutral-700 my-1" />
+            {!showCustomAngleInput ? (
+              <button
+                onClick={() => setShowCustomAngleInput(true)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left hover:bg-neutral-700 transition-colors"
+              >
+                <PlusIcon className="w-3.5 h-3.5 text-neutral-400" />
+                <span className="text-[11px] text-neutral-300 font-medium">Custom</span>
+              </button>
+            ) : (
+              <div className="px-2 py-1.5">
+                <textarea
+                  autoFocus
+                  value={customAnglePrompt}
+                  onChange={(e) => setCustomAnglePrompt(e.target.value)}
+                  placeholder="Describe the angle/change..."
+                  className="w-full h-[50px] text-[10px] px-2 py-1.5 border border-neutral-600 rounded bg-neutral-900 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey && customAnglePrompt.trim()) {
+                      e.preventDefault();
+                      handleGenerateAngle(anglePickerClipId!, "custom", anglePickerSourceImage ?? undefined, customAnglePrompt.trim());
+                    }
+                    if (e.key === "Escape") {
+                      setShowCustomAngleInput(false);
+                      setCustomAnglePrompt("");
+                    }
+                  }}
+                />
+                <div className="flex gap-1 mt-1">
+                  <button
+                    onClick={() => {
+                      if (customAnglePrompt.trim()) {
+                        handleGenerateAngle(anglePickerClipId!, "custom", anglePickerSourceImage ?? undefined, customAnglePrompt.trim());
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors ${
-                      angleSubmenu === group ? "bg-neutral-700" : "hover:bg-neutral-700"
-                    }`}
+                    disabled={!customAnglePrompt.trim()}
+                    className="flex-1 py-1 rounded text-[9px] font-medium bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
-                    <span className="text-[11px] text-neutral-300 font-medium">{group}</span>
-                    <ArrowRightIcon className="w-3 h-3 text-neutral-500" />
+                    Generate
+                  </button>
+                  <button
+                    onClick={() => { setShowCustomAngleInput(false); setCustomAnglePrompt(""); }}
+                    className="px-2 py-1 rounded text-[9px] text-neutral-400 hover:text-neutral-300 hover:bg-neutral-700 transition-colors"
+                  >
+                    Cancel
                   </button>
                 </div>
-              ));
-            })()}
+              </div>
+            )}
           </div>
-          {/* Submenu — also fixed position */}
+          {/* Submenu — also fixed position, anchored to bottom of trigger so it opens upward */}
           {angleSubmenu && angleSubmenuPos && (
             <div
               className="fixed z-[80] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl p-1.5 min-w-[180px]"
-              style={{ left: angleSubmenuPos.x, top: angleSubmenuPos.y }}
+              style={{ left: angleSubmenuPos.x, bottom: window.innerHeight - angleSubmenuPos.y - 32 }}
               onMouseLeave={() => setAngleSubmenu(null)}
             >
               {ANGLE_PRESETS.filter((p) => (p as { group?: string }).group === angleSubmenu).map((preset) => (

@@ -15,12 +15,18 @@ Full-screen, no header. Three-column layout with a fixed timeline bar at the bot
 │ ← Back │                   │  Prompt             │
 │  Input │                   │  Evasion technique   │
 │  New → │    Video          │  Evasion output      │
-│        │    Preview        │  Evasion output      │
-│  9:16  │    (center)       │  Continuity [on/off] │
-│  Input │                   │  ────────────────── │
-│  Photo │                   │  Duration | Ratio   │
-│        │                   │  Res | ☑ Last frame │
-│        │                   │  [▶ Generate]       │
+│        │    Preview        │  Controls [on/off]   │
+│  9:16  │    (center)       │   ▶ Camera           │
+│  Input │                   │   ▶ Lighting         │
+│  Photo │                   │   ▶ Lens             │
+│        │                   │   ▶ Mood             │
+│        │                   │   ▶ Color            │
+│        │                   │   ▶ Body             │
+│        │                   │   ▶ Scene            │
+│        │                   │  Face reference [on] │
+│        │                   │  Duration | Ratio    │
+│        │                   │  Res                 │
+│        │                   │  [▶ Generate/Cancel] │
 ├────────┴───────────────────┴────────────────────┤
 │  ▶ 0:00 / 1:24      🔁 loop         [Export]   │
 │  ──────── scrubber bar with playhead ────────   │
@@ -33,7 +39,7 @@ Full-screen, no header. Three-column layout with a fixed timeline bar at the bot
 
 ### Left Panel — Input Photo (350px)
 
-Upload or drag & drop an image. The image is center-cropped to match the selected aspect ratio before saving. When "Use last frame" is enabled, this auto-updates with the last frame of the most recently generated clip. The Back and New buttons sit inline in the panel header.
+Upload or drag & drop an image. The image is center-cropped to match the selected aspect ratio before saving. The last frame of the most recently generated clip is always auto-set as the next input for chaining. The Back and New buttons sit inline in the panel header.
 
 ### Center Panel — Video Preview (flex)
 
@@ -55,9 +61,10 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 |---------|-------------|
 | **Prompt** | Main text prompt (80px textarea) |
 | **Evasion** | Technique dropdown + editable transformed output textarea. Shows char diff (`+N chars`, `in → out`). Uses `applyEvasion()` from `@/utils/promptEvasion` |
-| **Continuity** | Toggle (on by default) + modifier chips. Appends camera/motion instructions after evasion output to keep clip transitions consistent. Default modifiers: "Static camera", "Smooth motion", "Consistent light" |
-| **Parameters** | Duration slider (1–15s), Aspect Ratio (9:16, 16:9, 1:1), Resolution (480p, 720p), "Use last frame" checkbox |
-| **Generate** | Full-width button. Shows **Regenerate** (amber) when a clip is selected, **Generate** (blue) otherwise |
+| **Controls** | Toggle (on by default) + collapsible cinematic groups (Camera, Lighting, Lens, Mood, Color, Body, Scene). Multiple groups can be open simultaneously. Each chip shows a tooltip with its full prompt on hover |
+| **Face reference** | Toggle (on by default). When enabled, angle variant generation composites the original input image alongside the current frame for identity preservation |
+| **Parameters** | Duration slider (1–15s), Aspect Ratio (9:16, 16:9, 1:1), Resolution (480p, 720p) |
+| **Generate** | Full-width button. Shows **Cancel** (red) during generation, **Regenerate** (amber) when a clip is selected, **Generate** (blue) otherwise. Cancel aborts the API call and removes the placeholder clip |
 
 ### Timeline (bottom bar, full-width, 200px)
 
@@ -77,65 +84,97 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 - **Arrow →** (bottom-left, green) — set this image as next generation input (shows as NEXT at end of timeline)
 - **X** (top-right, red on hover) — delete variant
 
+## Cinematic Controls System
+
+Replaces the old flat "Continuity" chip toggles with organized, collapsible category groups using professional cinematography terminology from `docs/SKILL.md`.
+
+**Base instruction** (always appended when Controls is enabled):
+> seamlessly continue this scene from the input frame, maintain consistent style, atmosphere, brightness, and exposure
+
+### Cinematic Groups
+
+Groups use single-select (radio) behavior except Scene which is multi-select. Active chip styling: blue for single-select, green for multi-select (Scene).
+
+| Group | Type | Options |
+|-------|------|---------|
+| **Camera** | Single-select | Static (default), Slow push in, Pull back, Slow pan, Tracking, Orbit, Crane, Handheld, Steadicam |
+| **Lighting** | Single-select | Golden hour, Rim light, Soft diffused, Low key, High key, Neon, Volumetric, Natural, Candlelight |
+| **Lens** | Single-select | Shallow DoF, Deep focus, 85mm portrait, 35mm wide, Anamorphic, Tilt-shift |
+| **Mood** | Single-select | Misty, Foggy, Rainy, Moody, Ethereal, Gritty, Dreamy, Serene |
+| **Color** | Single-select | Warm tones, Cool tones, Desaturated, Vibrant, Teal & Orange, Pastel, Monochrome, Film noir |
+| **Body** | Single-select | Frozen pose (default), Natural pose, Action allowed |
+| **Scene** | Multi-select | Smooth motion (default), No cuts, Consistent light (default), Eye contact, Empty scene |
+
+**Prompt assembly order**: `[evasion(user prompt)]. [base continuity], [camera], [lighting], [lens], [mood], [color], [body], [scene modifiers]`
+
+### Body Control
+
+The Body control affects both video generation (via prompt) and angle variant generation (appended to preset prompts). This prevents the "creepy half-body twist" artifact where AI rotates only part of the body:
+
+- **Frozen pose**: "FROZEN like a statue, completely rigid, ZERO movement, like a mannequin" — best for orbit/turnaround shots
+- **Natural pose**: Allows subtle adjustments (weight shift, head tilt) but no major pose changes
+- **Action allowed**: Person can move freely — for custom prompts like kneeling, sitting, walking
+
 ## Camera Angle Variants
 
 Generate fresh high-quality images from frames or the input image using different camera perspectives. This combats quality degradation from chaining multiple video generations.
 
 ### Angle Presets
 
-22 total presets organized into direct presets and grouped orbit presets:
-
-**Direct presets** (14):
-
-| Preset | Description |
-|--------|-------------|
-| Upscale | Enhance resolution and sharpness only |
-| Clean up | Recreate scene removing artifacts and noise |
-| Close-up | Face and upper body focus |
-| Wide shot | Full environment establishing shot |
-| Low angle | Dramatic perspective from below |
-| High angle | Bird's eye perspective from above |
-| Profile | 90-degree side view |
-| Over shoulder | Over-the-shoulder with depth of field |
-| Medium shot | Waist-up framing |
-| Dutch angle | Tilted camera rotation |
-| POV | First-person perspective |
-| Behind | View from behind the subject |
-| Extreme CU | Tight crop on eyes and nose |
-| Mirror | Horizontally flipped reflection |
-
-**Grouped presets** (8, in nested submenus):
+25+ presets organized into 5 fly-out submenu groups:
 
 | Group | Presets |
 |-------|---------|
-| Orbit Camera | Left 45°, Right 45°, Left 90°, Right 90° — camera moves around frozen subject |
-| Orbit Person | Turn left 45°, Turn right 45°, Turn left 90°, Turn right 90° — subject rotates like a mannequin on turntable |
+| **Enhance** | Upscale, Clean up |
+| **Framing** | Close-up, Wide shot, Medium shot, Extreme CU |
+| **Angle** | Low angle, High angle, Profile, Over shoulder, Dutch angle, POV, Behind, Mirror flip |
+| **Orbit Camera** | Left 45°, Right 45°, Left 90°, Right 90° — camera moves around frozen subject |
+| **Orbit Person** | Turn left 45°/90°/135°, Turn right 45°/90°/135°, Turn 180° — subject rotates like a mannequin on turntable |
+| **Custom** | Free-text input with `CUSTOM_LOCK` (identity + location preserved, pose changes allowed) |
 
 ### Prompt Engineering
 
-All presets append `ANGLE_LOCK` — an aggressive suffix that enforces:
+**ANGLE_LOCK** (all presets except Custom):
 - Single continuous image (anti-collage)
 - Same location, background, setting
 - Same person appearance: face, skin tone, ethnicity, body type, hair, makeup, clothing, accessories
 - Same lighting, brightness, exposure, color temperature
+- "DO NOT alter the person's appearance in any way"
 - Photorealistic output
 
-Orbit camera presets additionally enforce "FROZEN like a statue" — zero pose change, no arm/leg/hand/foot movement. Orbit person presets use "mannequin on a turntable" — rigid body rotation only.
+**CUSTOM_LOCK** (Custom option only):
+- Same as ANGLE_LOCK but without "DO NOT alter the person's appearance in any way"
+- Allows pose/action changes while preserving identity and location
+
+Orbit Person presets additionally enforce accessory rotation: "All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing."
+
+### Face Reference Composite
+
+When **Face reference** toggle is ON and the source image differs from the original upload (e.g. after a 180° turnaround), the system composites the original face photo next to the current frame before sending to the API:
+
+1. Creates a side-by-side canvas: LEFT = current frame (70% width), RIGHT = original face reference (30% width), separated by a white line
+2. Prepends to prompt: "The input contains TWO images side by side... LARGE image on the LEFT is the scene to edit... SMALL image on the RIGHT is ONLY a face/identity reference..."
+3. Instructs model to output a SINGLE image based on LEFT only, using RIGHT for identity preservation
+
+This preserves face identity even when the person is facing away from camera. Toggle OFF when not needed (e.g. Upscale, or when working with a different person).
 
 ### Generation Flow
 
 1. Hover a frame/variant/IN thumbnail → click camera button (top-left)
-2. Dropdown opens upward with preset list (fixed position, z-70)
-3. Orbit groups open a submenu to the right (fixed position, z-80)
-4. Hovering a preset shows its full prompt as a tooltip
-5. Click a preset → calls `/api/generate` with:
+2. Dropdown opens upward with grouped submenus (Enhance, Framing, Angle, Orbit Camera, Orbit Person)
+3. Hovering a preset shows its full prompt as a tooltip
+4. Click a preset → calls `/api/generate` with:
    - `mediaType: "image"`
    - `selectedModel: { provider: "xai", modelId: "grok-imagine-image" }`
-   - `images: [sourceImage]`
-   - `prompt: preset.prompt` (includes ANGLE_LOCK)
+   - `images: [sourceImage]` (or composite if face reference enabled)
+   - `prompt: preset.prompt + body control prompt` (includes ANGLE_LOCK/CUSTOM_LOCK)
    - `parameters: { aspect_ratio }` — preserves current aspect ratio
-6. Result saved to `<project>/angles/angle_<timestamp>.png`
-7. Variant appears as violet-bordered thumbnail next to its source
+5. Result saved to `<project>/angles/angle_<timestamp>.png`
+6. Variant appears as violet-bordered thumbnail next to its source
+
+### Custom Angle
+
+Click **Custom** at bottom of angle picker → textarea appears. Type your instruction (e.g. "kneeling down", "looking over left shoulder"), hit Enter or click Generate. The prompt wraps with `CUSTOM_LOCK` (preserves identity + location, allows pose changes).
 
 ### Variant Chaining
 
@@ -166,28 +205,35 @@ Techniques are organized by estimated bypass rate:
 
 Each clip stores both `rawPrompt` (original) and `prompt` (evasion-applied), plus which `evasionTechnique` was used. Clicking a clip loads its prompt and technique back into the form.
 
-## Continuity System
+## Video Generation
 
-Each clip is generated independently, so the model has no context that it's continuing a sequence. The continuity system appends camera/motion instructions **after** the evasion-transformed prompt (evasion only applies to the creative content, not the camera instructions).
+### Generate / Cancel
 
-**Base instruction** (always appended when enabled):
-> seamlessly continue this scene from the input frame, maintain consistent style, atmosphere, brightness, and exposure
+The generate button has three states:
+- **Blue "Generate"** — starts video generation
+- **Red "Cancel"** — appears during generation, aborts the API call via `AbortController` and removes the placeholder clip
+- **Amber "Regenerate"** — when a clip is selected
 
-**Toggleable modifiers** (chip buttons, multiple can be active):
+### Last Frame Auto-Chain
 
-| Modifier | Prompt appended |
-|----------|----------------|
-| Static camera | `static camera, no camera movement` |
-| Slow pan | `slow smooth pan` |
-| Slow zoom in | `slow subtle zoom in` |
-| No cuts | `no scene cuts, no transitions` |
-| Consistent light | `maintain exact same brightness, exposure, color temperature, and lighting throughout, no darkening or brightening` |
-| Smooth motion | `smooth continuous motion, no sudden movements` |
-| Eye contact | `person looking directly at camera, direct eye contact with viewer, facing the camera` |
+After each clip generates, the last frame is always extracted and set as the next input (hardcoded, no toggle). This ensures continuous scene chaining.
 
-**Defaults**: Enabled with "Static camera" + "Smooth motion" + "Consistent light" active.
+1. Creates an off-screen `<video>` element
+2. Seeks to `duration - 0.05s`
+3. Waits 200ms for frame decode, then draws to canvas
+4. Saves as PNG to `<project>/frames/lastframe_<timestamp>.png`
+5. Updates the clip's `lastFrame`/`lastFramePath` fields
+6. Sets as input image for the next generation
 
-**Prompt assembly order**: `[evasion(user prompt)]. [base continuity], [modifier1], [modifier2]`
+Timeout: 20 seconds. On failure, falls back gracefully (clip still works, just no frame thumbnail).
+
+## Playback
+
+- **Sequential**: Plays clips in order using `requestAnimationFrame` loop
+- **Looping**: Toggle in timeline toolbar — restarts from beginning when reaching the end
+- **Clip switching**: Tracks active clip via `prevClipRef` to avoid unnecessary re-renders. On clip change, waits two animation frames for React to render new video src before playing
+- **Scrubbing**: Click-and-drag on the scrubber bar. Pauses playback during drag, resumes after mouseup if it was playing before
+- **Keyboard**: Spacebar toggles play/pause (ignored when focused on input/textarea/select)
 
 ## Video Export
 
@@ -200,42 +246,32 @@ Uses the `useStitchVideos` hook (`src/hooks/useStitchVideos.ts`) backed by the `
 
 Progress states: encoding → complete / error.
 
-## Last Frame Extraction
-
-After each clip generates, the system extracts the last frame:
-
-1. Creates an off-screen `<video>` element
-2. Seeks to `duration - 0.05s`
-3. Waits 200ms for frame decode, then draws to canvas
-4. Saves as PNG to `<project>/frames/lastframe_<timestamp>.png`
-5. Updates the clip's `lastFrame`/`lastFramePath` fields
-6. Sets as input image for the next generation (when "Use last frame" is enabled)
-
-Timeout: 20 seconds. On failure, falls back gracefully (clip still works, just no frame thumbnail).
-
-## Playback
-
-- **Sequential**: Plays clips in order using `requestAnimationFrame` loop
-- **Looping**: Toggle in timeline toolbar — restarts from beginning when reaching the end
-- **Clip switching**: Tracks active clip via `prevClipRef` to avoid unnecessary re-renders. On clip change, waits two animation frames for React to render new video src before playing
-- **Scrubbing**: Click-and-drag on the scrubber bar. Pauses playback during drag, resumes after mouseup if it was playing before
-- **Keyboard**: Spacebar toggles play/pause (ignored when focused on input/textarea/select)
-
 ## Core Workflow
 
 1. Upload a reference image (left panel) — auto-cropped to aspect ratio
 2. Write a prompt (right panel)
 3. Select evasion technique — preview transformed output
-4. Click **Generate** — clip appears on timeline
-5. Last frame is extracted and set as next input (if enabled)
-6. Optionally generate angle variants from frames or IN image to get clean camera angles
-7. Use arrow button on any variant/frame to set as NEXT input for continued generation
-8. Click a clip to load its prompt/technique, modify, and regenerate or generate next
-9. Export all clips as a single MP4
+4. Configure cinematic controls (Camera, Lighting, Lens, Mood, Color, Body, Scene)
+5. Click **Generate** — clip appears on timeline (click Cancel to abort)
+6. Last frame is extracted and auto-set as next input
+7. Optionally generate angle variants from frames or IN image to get clean camera angles
+8. Use arrow button on any variant/frame to set as NEXT input for continued generation
+9. Click a clip to load its prompt/technique, modify, and regenerate or generate next
+10. Export all clips as a single MP4
 
 ## Data Model
 
 ```typescript
+interface CinematicState {
+  camera: string | null;
+  lighting: string | null;
+  lens: string | null;
+  mood: string | null;
+  color: string | null;
+  body: string | null;
+  scene: Set<string>;
+}
+
 interface AngleVariant {
   id: string;
   clipId: string;              // parent clip ID or "__input__" for IN variants
@@ -268,8 +304,9 @@ interface Clip {
 
 - App mode (`workflow` or `scenario`) persists in `localStorage` under `node-banana-app-mode`
 - Scenario state saves to disk as JSON in the project directory via `/api/scenario`
-- Saved fields: `inputImagePath`, `originalInputImagePath`, `inputAngleVariants`, `prompt`, `evasionTechnique`, `continuityEnabled`, `activeModifiers`, `duration`, `aspectRatio`, `resolution`, `useLastFrame`, `clips` (with paths and angle variants), `activeClipId`
+- Saved fields: `inputImagePath`, `originalInputImagePath`, `inputAngleVariants`, `prompt`, `evasionTechnique`, `continuityEnabled`, `cinematic` (camera, lighting, lens, mood, color, body, scene), `duration`, `aspectRatio`, `resolution`, `useLastFrame`, `clips` (with paths and angle variants), `activeClipId`
 - `originalInputImagePath` tracks the first uploaded image separately so the IN thumbnail always shows the original even when a variant is set as current input
+- Backwards compatible: loads old `activeModifiers` format and maps to new cinematic state
 - On load, `"generating"` status clips/variants are reset to avoid stuck state
 
 ## Disk Structure
