@@ -23,7 +23,7 @@ Full-screen, no header. Three-column layout with a fixed timeline bar at the bot
 │        │                   │   ▶ Color            │
 │        │                   │   ▶ Body             │
 │        │                   │   ▶ Scene            │
-│        │                   │  Face reference [on] │
+│        │                   │  Appearance ref [on]  │
 │        │                   │  Duration | Ratio    │
 │        │                   │  Res                 │
 │        │                   │  [▶ Generate/Cancel] │
@@ -62,7 +62,7 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 | **Prompt** | Main text prompt (80px textarea) |
 | **Evasion** | Technique dropdown + editable transformed output textarea. Shows char diff (`+N chars`, `in → out`). Uses `applyEvasion()` from `@/utils/promptEvasion` |
 | **Controls** | Toggle (on by default) + collapsible cinematic groups (Camera, Lighting, Lens, Mood, Color, Body, Scene). Multiple groups can be open simultaneously. Each chip shows a tooltip with its full prompt on hover |
-| **Face reference** | Toggle (on by default). When enabled, angle variant generation composites the original input image alongside the current frame for identity preservation |
+| **Appearance reference** | Toggle (on by default). When enabled, both angle variant generation and video generation composite the original input image alongside the current frame to preserve full appearance consistency (face, clothing, accessories, tattoos, etc.) |
 | **Parameters** | Duration slider (1–15s), Aspect Ratio (9:16, 16:9, 1:1), Resolution (480p, 720p) |
 | **Generate** | Full-width button. Shows **Cancel** (red) during generation, **Regenerate** (amber) when a clip is selected, **Generate** (blue) otherwise. Cancel aborts the API call and removes the placeholder clip |
 
@@ -148,15 +148,15 @@ Generate fresh high-quality images from frames or the input image using differen
 
 Orbit Person presets additionally enforce accessory rotation: "All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing."
 
-### Face Reference Composite
+### Appearance Reference Composite
 
-When **Face reference** toggle is ON and the source image differs from the original upload (e.g. after a 180° turnaround), the system composites the original face photo next to the current frame before sending to the API:
+When **Appearance reference** toggle is ON and the source image differs from the original upload (e.g. after a 180° turnaround), the system composites the original photo next to the current frame before sending to the API. This works for both **angle variant generation** (images) and **video generation**.
 
-1. Creates a side-by-side canvas: LEFT = current frame (70% width), RIGHT = original face reference (30% width), separated by a white line
-2. Prepends to prompt: "The input contains TWO images side by side... LARGE image on the LEFT is the scene to edit... SMALL image on the RIGHT is ONLY a face/identity reference..."
-3. Instructs model to output a SINGLE image based on LEFT only, using RIGHT for identity preservation
+1. Creates a side-by-side canvas: LEFT = current frame (70% width), RIGHT = original appearance reference (30% width), separated by a white line
+2. Prepends to prompt: "The input contains TWO images side by side... LARGE image on the LEFT is the scene to edit/animate... SMALL image on the RIGHT is ONLY an appearance reference..."
+3. Instructs model to output a SINGLE image/video based on LEFT only, using RIGHT to maintain EXACT consistency of: face, skin tone, hair style and color, makeup, clothing, accessories (jewelry, watches, glasses, hats, bags, belts), tattoos, and every other visible detail
 
-This preserves face identity even when the person is facing away from camera. Toggle OFF when not needed (e.g. Upscale, or when working with a different person).
+This preserves full appearance consistency even when the person is facing away from camera or when zooming out from a close-up. Toggle OFF when not needed (e.g. Upscale, or when working with a different person).
 
 ### Generation Flow
 
