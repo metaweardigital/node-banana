@@ -1923,7 +1923,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* ================================================================== */}
       {/* TIMELINE */}
       {/* ================================================================== */}
-      <div className={`${clips.some((c) => c.angleVariants.length > 0) || anglePickerClipId ? "h-[200px]" : "h-[140px]"} flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col transition-all`}>
+      <div className={`${clips.some((c) => c.lastFrame && c.status === "done") ? "h-[200px]" : "h-[140px]"} flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col transition-all`}>
         {/* Playback controls row */}
         <div className="h-[30px] flex items-center px-3 border-b border-neutral-800/50 gap-3">
           <button
@@ -2154,8 +2154,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           )}
         </div>
 
-        {/* Angle track — appears when any clip has variants or picker is open */}
-        {(clips.some((c) => c.angleVariants.length > 0) || anglePickerClipId) && (
+        {/* Angle track — appears when any clip has a last frame */}
+        {clips.some((c) => c.lastFrame && c.status === "done") && (
           <div className="h-[50px] px-3 py-1 overflow-x-auto flex items-center gap-1.5 border-t border-neutral-800/50">
             {/* Spacer for input image column */}
             {inputImage && (
