@@ -2216,7 +2216,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
                         {/* Angle picker dropdown */}
                         {anglePickerClipId === clip.id && (
-                          <div className="absolute top-full left-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 p-1.5 min-w-[140px]">
+                          <div className="absolute bottom-full left-0 mb-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 p-1.5 min-w-[140px]">
                             {ANGLE_PRESETS.map((preset) => (
                               <button
                                 key={preset.id}
