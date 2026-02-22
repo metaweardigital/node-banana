@@ -41,6 +41,7 @@ interface Clip {
   prompt: string;                    // evasion-applied prompt sent to API
   rawPrompt: string;                 // original prompt before evasion
   evasionTechnique: EvasionTechnique; // technique used for this clip
+  angleVariants: AngleVariant[];
   status: "idle" | "generating" | "done" | "error";
   error?: string;
 }
@@ -48,6 +49,77 @@ interface Clip {
 // EvasionTechnique type imported from @/utils/promptEvasion
 const TECHNIQUES = Object.entries(TECHNIQUE_LABELS) as [EvasionTechnique, string][];
 
+const CONTINUITY_MODIFIERS = [
+  { id: "static-camera", label: "Static camera", prompt: "static camera, no camera movement" },
+  { id: "slow-pan", label: "Slow pan", prompt: "slow smooth pan" },
+  { id: "slow-zoom", label: "Slow zoom in", prompt: "slow subtle zoom in" },
+  { id: "no-cuts", label: "No cuts", prompt: "no scene cuts, no transitions" },
+  { id: "consistent-lighting", label: "Consistent light", prompt: "consistent lighting throughout" },
+  { id: "smooth-motion", label: "Smooth motion", prompt: "smooth continuous motion, no sudden movements" },
+] as const;
+
+const ANGLE_PRESETS = [
+  {
+    id: "upscale",
+    label: "Upscale",
+    icon: "⬆",
+    prompt: "Upscale this image. Keep all details of the original image exactly the same. Same person, same pose, same clothing, same environment, same lighting, same camera angle, same composition. Enhance resolution and sharpness only",
+  },
+  {
+    id: "clean",
+    label: "Clean up",
+    icon: "✦",
+    prompt: "Recreate this exact same scene with the exact same person, clothing, environment, lighting, and mood. Same camera angle. Remove any artifacts, noise, or compression. Highest quality, sharp details",
+  },
+  {
+    id: "closeup",
+    label: "Close-up",
+    icon: "◉",
+    prompt: "Close-up shot of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Focus on face and upper body. Sharp details, cinematic",
+  },
+  {
+    id: "wide",
+    label: "Wide shot",
+    icon: "▭",
+    prompt: "Wide establishing shot of the exact same scene with the same person. Same clothing, same environment, same lighting, same mood. Show full environment and surroundings. Cinematic composition",
+  },
+  {
+    id: "low",
+    label: "Low angle",
+    icon: "⏶",
+    prompt: "Low angle shot looking up at the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Dramatic perspective from below. Cinematic",
+  },
+  {
+    id: "high",
+    label: "High angle",
+    icon: "⏷",
+    prompt: "High angle shot looking down at the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Bird's eye perspective. Cinematic",
+  },
+  {
+    id: "profile",
+    label: "Profile",
+    icon: "◧",
+    prompt: "Side profile view of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. 90-degree side angle. Cinematic",
+  },
+  {
+    id: "over-shoulder",
+    label: "Over shoulder",
+    icon: "◨",
+    prompt: "Over-the-shoulder shot of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Slight depth of field. Cinematic",
+  },
+] as const;
+
+interface AngleVariant {
+  id: string;
+  clipId: string;
+  presetId: string;
+  image: string | null;
+  imagePath: string | null;
+  status: "generating" | "done" | "error";
+  error?: string;
+}
+
+const BASE_CONTINUITY = "seamlessly continue this scene from the input frame, maintain consistent style and atmosphere";
 
 // ============================================================================
 // Persistence — saves to user-chosen project directory via /api/scenario
@@ -67,6 +139,8 @@ interface ScenarioStateDisk {
   inputImagePath: string | null;
   prompt: string;
   evasionTechnique: EvasionTechnique;
+  continuityEnabled: boolean;
+  activeModifiers: string[];
   duration: number;
   aspectRatio: string;
   resolution: string;
@@ -80,6 +154,12 @@ interface ScenarioStateDisk {
     prompt: string;
     rawPrompt?: string;
     evasionTechnique?: EvasionTechnique;
+    angleVariants?: Array<{
+      id: string;
+      presetId: string;
+      imagePath: string | null;
+      status: "done" | "error";
+    }>;
     status: "idle" | "generating" | "done" | "error";
   }>;
   activeClipId: string | null;
@@ -116,6 +196,8 @@ interface LoadedScenarioState {
   inputImagePath: string | null;
   prompt: string;
   evasionTechnique: EvasionTechnique;
+  continuityEnabled: boolean;
+  activeModifiers: string[];
   duration: number;
   aspectRatio: string;
   resolution: string;
@@ -156,6 +238,14 @@ async function loadScenarioStateFromDisk(directoryPath: string): Promise<LoadedS
       prompt: c.prompt,
       rawPrompt: c.rawPrompt ?? c.prompt,
       evasionTechnique: c.evasionTechnique ?? "zwsp",
+      angleVariants: (c.angleVariants ?? []).map((av) => ({
+        id: av.id,
+        clipId: c.id,
+        presetId: av.presetId,
+        image: resolveImagePath(av.imagePath, directoryPath),
+        imagePath: av.imagePath,
+        status: av.status,
+      })),
       status: c.status === "generating" ? "done" : c.status, // reset stuck generating state
     }));
 
@@ -164,6 +254,8 @@ async function loadScenarioStateFromDisk(directoryPath: string): Promise<LoadedS
       inputImagePath,
       prompt: disk.prompt ?? "",
       evasionTechnique: disk.evasionTechnique ?? "zwsp",
+      continuityEnabled: disk.continuityEnabled ?? true,
+      activeModifiers: disk.activeModifiers ?? ["static-camera", "smooth-motion"],
       duration: disk.duration ?? 12,
       aspectRatio: disk.aspectRatio ?? "9:16",
       resolution: disk.resolution ?? "480p",
@@ -184,6 +276,8 @@ function saveScenarioStateToDisk(
     inputImagePath: string | null;
     prompt: string;
     evasionTechnique: EvasionTechnique;
+    continuityEnabled: boolean;
+    activeModifiers: string[];
     duration: number;
     aspectRatio: string;
     resolution: string;
@@ -198,6 +292,8 @@ function saveScenarioStateToDisk(
       inputImagePath: state.inputImagePath,
       prompt: state.prompt,
       evasionTechnique: state.evasionTechnique,
+      continuityEnabled: state.continuityEnabled,
+      activeModifiers: state.activeModifiers,
       duration: state.duration,
       aspectRatio: state.aspectRatio,
       resolution: state.resolution,
@@ -213,6 +309,14 @@ function saveScenarioStateToDisk(
           prompt: c.prompt,
           rawPrompt: c.rawPrompt,
           evasionTechnique: c.evasionTechnique,
+          angleVariants: c.angleVariants
+            .filter((av): av is AngleVariant & { status: "done" | "error" } => av.status !== "generating")
+            .map((av) => ({
+              id: av.id,
+              presetId: av.presetId,
+              imagePath: av.imagePath,
+              status: av.status,
+            })),
           status: c.status,
         })),
       activeClipId: state.activeClipId,
@@ -330,6 +434,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     useState<EvasionTechnique>("zwsp");
   const [evasionOutput, setEvasionOutput] = useState<string | null>(null);
 
+  // Continuity
+  const [continuityEnabled, setContinuityEnabled] = useState(true);
+  const [activeModifiers, setActiveModifiers] = useState<Set<string>>(new Set(["static-camera", "smooth-motion"]));
+
   // Parameters
   const [duration, setDuration] = useState(12);
   const [aspectRatio, setAspectRatio] = useState("9:16");
@@ -347,6 +455,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const isPlayingRef = useRef(false); // ref mirror to avoid stale closures in rAF
   const isLoopingRef = useRef(false);
   const rafRef = useRef<number | null>(null);
+
+  // Angle variants
+  const [anglePickerClipId, setAnglePickerClipId] = useState<string | null>(null);
 
   // Generating state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -427,6 +538,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         } else {
           setEvasionOutput(null);
         }
+        setContinuityEnabled(saved.continuityEnabled ?? true);
+        setActiveModifiers(new Set(saved.activeModifiers ?? ["static-camera", "smooth-motion"]));
         setDuration(saved.duration ?? 12);
         setAspectRatio(saved.aspectRatio ?? "9:16");
         setResolution(saved.resolution ?? "480p");
@@ -446,6 +559,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     setPrompt("");
     setEvasionTechnique("zwsp");
     setEvasionOutput(null);
+    setContinuityEnabled(true);
+    setActiveModifiers(new Set(["static-camera", "smooth-motion"]));
     setDuration(12);
     setAspectRatio("9:16");
     setResolution("480p");
@@ -503,6 +618,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       inputImagePath,
       prompt,
       evasionTechnique,
+      continuityEnabled,
+      activeModifiers: Array.from(activeModifiers),
       duration,
       aspectRatio,
       resolution,
@@ -510,7 +627,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       clips,
       activeClipId,
     });
-  }, [isLoaded, activeProject, inputImagePath, prompt, evasionTechnique, duration, aspectRatio, resolution, useLastFrame, clips, activeClipId]);
+  }, [isLoaded, activeProject, inputImagePath, prompt, evasionTechnique, continuityEnabled, activeModifiers, duration, aspectRatio, resolution, useLastFrame, clips, activeClipId]);
 
   // ---- Handlers ----
 
@@ -628,10 +745,18 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     reader.readAsDataURL(file);
   }, [saveInputImage]);
 
-  // Build the full prompt (evasion output if available, otherwise raw)
+  // Build the full prompt (evasion output + continuity suffix)
   const buildFullPrompt = useCallback(() => {
-    return evasionOutput || prompt;
-  }, [prompt, evasionOutput]);
+    let result = evasionOutput || prompt;
+    if (continuityEnabled) {
+      const parts = [BASE_CONTINUITY];
+      for (const mod of CONTINUITY_MODIFIERS) {
+        if (activeModifiers.has(mod.id)) parts.push(mod.prompt);
+      }
+      result += ". " + parts.join(", ");
+    }
+    return result;
+  }, [prompt, evasionOutput, continuityEnabled, activeModifiers]);
 
   // Real xAI video generation
   const handleGenerate = useCallback(async () => {
@@ -659,6 +784,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       prompt: fullPrompt,
       rawPrompt: prompt,
       evasionTechnique,
+      angleVariants: [],
       status: "generating",
     };
     setClips((prev) => [...prev, placeholderClip]);
@@ -859,6 +985,142 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       setIsGenerating(false);
     }
   }, [prompt, xaiApiKey, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject, useLastFrame]);
+
+  // Generate an angle variant image from a clip's last frame
+  const handleGenerateAngle = useCallback(async (clipId: string, presetId: string) => {
+    const clip = clips.find((c) => c.id === clipId);
+    if (!clip?.lastFrame) return;
+
+    const preset = ANGLE_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
+
+    setAnglePickerClipId(null);
+
+    const variantId = `angle-${Date.now()}`;
+    const newVariant: AngleVariant = {
+      id: variantId,
+      clipId,
+      presetId,
+      image: null,
+      imagePath: null,
+      status: "generating",
+    };
+
+    // Add variant to clip
+    setClips((prev) =>
+      prev.map((c) =>
+        c.id === clipId
+          ? { ...c, angleVariants: [...c.angleVariants, newVariant] }
+          : c
+      )
+    );
+
+    try {
+      // Resolve frame image for API
+      let frameForApi: string;
+      if (clip.lastFrame.startsWith("data:")) {
+        frameForApi = clip.lastFrame;
+      } else if (clip.lastFrame.startsWith("/api/")) {
+        const imgRes = await fetch(clip.lastFrame);
+        const blob = await imgRes.blob();
+        frameForApi = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        frameForApi = clip.lastFrame;
+      }
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (xaiApiKey) headers["X-XAI-Key"] = xaiApiKey;
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          prompt: preset.prompt,
+          images: [frameForApi],
+          selectedModel: {
+            provider: "xai",
+            modelId: "grok-imagine-image",
+            displayName: "Grok Image",
+          },
+          parameters: {},
+          mediaType: "image",
+        }),
+      });
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || "Generation failed");
+
+      const imageData = result.image || result.imageUrl;
+      if (!imageData) throw new Error("No image data in response");
+
+      // Save to disk
+      let imagePath: string | null = null;
+      let imageDisplay: string = imageData;
+
+      if (activeProject) {
+        try {
+          const anglesDir = `${activeProject.directoryPath}/angles`;
+          const angleId = `angle_${Date.now()}`;
+          const saveRes = await fetch("/api/save-generation", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              directoryPath: anglesDir,
+              image: imageData,
+              prompt: preset.prompt,
+              customFilename: angleId,
+              createDirectory: true,
+            }),
+          });
+          const saveResult = await saveRes.json();
+          if (saveResult.success && saveResult.filePath) {
+            imagePath = `angles/${saveResult.filename}`;
+            imageDisplay = imageUrl(saveResult.filePath);
+          }
+        } catch {
+          // Disk save failed, use in-memory
+        }
+      }
+
+      // Update variant as done
+      setClips((prev) =>
+        prev.map((c) =>
+          c.id === clipId
+            ? {
+                ...c,
+                angleVariants: c.angleVariants.map((av) =>
+                  av.id === variantId
+                    ? { ...av, image: imageDisplay, imagePath, status: "done" as const }
+                    : av
+                ),
+              }
+            : c
+        )
+      );
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Angle generation failed";
+      setClips((prev) =>
+        prev.map((c) =>
+          c.id === clipId
+            ? {
+                ...c,
+                angleVariants: c.angleVariants.map((av) =>
+                  av.id === variantId
+                    ? { ...av, status: "error" as const, error: errorMsg }
+                    : av
+                ),
+              }
+            : c
+        )
+      );
+    }
+  }, [clips, xaiApiKey, activeProject]);
 
   // Stop playback and animation loop
   const stopPlayback = useCallback(() => {
@@ -1342,12 +1604,6 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               </div>
               <span className="text-[10px] text-neutral-500">{exportProgress.message}</span>
             </div>
-          ) : isGenerating ? (
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-12 h-12 border-2 border-neutral-700 border-t-blue-500 rounded-full animate-spin" />
-              <span className="text-sm text-neutral-400">Generating video...</span>
-              <span className="text-[10px] text-neutral-600">This may take a few minutes</span>
-            </div>
           ) : activeClip?.status === "error" ? (
             <div className="flex flex-col items-center gap-3 max-w-md px-6">
               <ExclamationTriangleIcon className="w-10 h-10 text-red-500/70" />
@@ -1522,6 +1778,51 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
             </div>
           </div>
 
+          {/* Continuity */}
+          <div className="px-3 py-2 border-b border-neutral-800">
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] font-medium text-neutral-400 uppercase tracking-wider">
+                Continuity
+              </label>
+              <button
+                onClick={() => setContinuityEnabled(!continuityEnabled)}
+                className={`relative w-7 h-[16px] rounded-full transition-colors ${
+                  continuityEnabled ? "bg-blue-600" : "bg-neutral-700"
+                }`}
+              >
+                <div
+                  className={`absolute top-[2px] w-[12px] h-[12px] rounded-full bg-white transition-transform ${
+                    continuityEnabled ? "left-[13px]" : "left-[2px]"
+                  }`}
+                />
+              </button>
+            </div>
+            {continuityEnabled && (
+              <div className="flex flex-wrap gap-1">
+                {CONTINUITY_MODIFIERS.map((mod) => (
+                  <button
+                    key={mod.id}
+                    onClick={() => {
+                      setActiveModifiers((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(mod.id)) next.delete(mod.id);
+                        else next.add(mod.id);
+                        return next;
+                      });
+                    }}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                      activeModifiers.has(mod.id)
+                        ? "bg-green-600/30 text-green-400 border border-green-500/40"
+                        : "bg-neutral-800 text-neutral-500 border border-neutral-700 hover:border-neutral-600 hover:text-neutral-400"
+                    }`}
+                  >
+                    {mod.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Parameters */}
           <div className="px-3 py-2 border-b border-neutral-800 space-y-2">
             <div className="flex items-center gap-2">
@@ -1622,7 +1923,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* ================================================================== */}
       {/* TIMELINE */}
       {/* ================================================================== */}
-      <div className="h-[140px] flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col">
+      <div className={`${clips.some((c) => c.angleVariants.length > 0) || anglePickerClipId ? "h-[200px]" : "h-[140px]"} flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col transition-all`}>
         {/* Playback controls row */}
         <div className="h-[30px] flex items-center px-3 border-b border-neutral-800/50 gap-3">
           <button
@@ -1852,6 +2153,115 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
             </>
           )}
         </div>
+
+        {/* Angle track — appears when any clip has variants or picker is open */}
+        {(clips.some((c) => c.angleVariants.length > 0) || anglePickerClipId) && (
+          <div className="h-[50px] px-3 py-1 overflow-x-auto flex items-center gap-1.5 border-t border-neutral-800/50">
+            {/* Spacer for input image column */}
+            {inputImage && (
+              <div className="flex-shrink-0 h-[38px]" style={{ aspectRatio: "9/16" }} />
+            )}
+
+            {clips.map((clip, index) => (
+              <div
+                key={`angle-${clip.id}`}
+                className="flex-shrink-0 flex items-center gap-1.5"
+              >
+                {/* Spacer matching video clip width */}
+                <div className="flex-shrink-0 h-[38px]" style={{ width: `${Math.max(40, clip.duration * 30)}px` }} />
+
+                {/* Angle variants area (below the frame position) */}
+                {clip.lastFrame && clip.status === "done" && (
+                  <div className="flex-shrink-0 flex items-center gap-1 relative">
+                    {/* Arrow spacer to match frame arrow */}
+                    <div className="text-transparent text-[10px]">&rarr;</div>
+
+                    {/* Camera button to add variant */}
+                    <button
+                      onClick={() => setAnglePickerClipId(anglePickerClipId === clip.id ? null : clip.id)}
+                      className={`flex-shrink-0 w-[38px] h-[38px] rounded-md border-2 border-dashed flex items-center justify-center transition-colors ${
+                        anglePickerClipId === clip.id
+                          ? "border-violet-500 bg-violet-500/10 text-violet-400"
+                          : "border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300"
+                      }`}
+                      title="Generate camera angle variant"
+                    >
+                      <span className="text-sm">📷</span>
+                    </button>
+
+                    {/* Angle picker dropdown */}
+                    {anglePickerClipId === clip.id && (
+                      <div className="absolute bottom-full left-0 mb-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 p-1.5 min-w-[140px]">
+                        {ANGLE_PRESETS.map((preset) => (
+                          <button
+                            key={preset.id}
+                            onClick={() => handleGenerateAngle(clip.id, preset.id)}
+                            className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-left hover:bg-neutral-700 transition-colors"
+                          >
+                            <span className="text-xs">{preset.icon}</span>
+                            <span className="text-[10px] text-neutral-300">{preset.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Generated variant thumbnails */}
+                    {clip.angleVariants.map((variant) => (
+                      <div key={variant.id} className="flex-shrink-0">
+                        {variant.status === "generating" ? (
+                          <div className="w-[38px] h-[38px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center">
+                            <div className="w-3 h-3 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                          </div>
+                        ) : variant.status === "error" ? (
+                          <div
+                            className="w-[38px] h-[38px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
+                            title={variant.error || "Generation failed"}
+                            onClick={() => {
+                              // Remove failed variant
+                              setClips((prev) =>
+                                prev.map((c) =>
+                                  c.id === clip.id
+                                    ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variant.id) }
+                                    : c
+                                )
+                              );
+                            }}
+                          >
+                            <ExclamationTriangleIcon className="w-3 h-3 text-red-500/70" />
+                          </div>
+                        ) : variant.image ? (
+                          <button
+                            onClick={() => {
+                              setActiveClipId(null);
+                              setInputImage(variant.image);
+                              if (variant.imagePath) setInputImagePath(variant.imagePath);
+                            }}
+                            className="flex-shrink-0 h-[38px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
+                            style={{ aspectRatio: "9/16" }}
+                            title={`${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId} — click to use as input`}
+                          >
+                            <img
+                              src={variant.image}
+                              alt={variant.presetId}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0">
+                              <span className="text-[7px] text-violet-400 font-medium truncate block">
+                                {ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.icon ?? ""}
+                              </span>
+                            </div>
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="flex-shrink-0 w-2" />
+          </div>
+        )}
 
         {/* Bottom spacer */}
         <div className="h-1" />
