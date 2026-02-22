@@ -6,13 +6,21 @@ import {
   ArrowUpTrayIcon,
   ArrowDownTrayIcon,
   ArrowPathIcon,
+  ArrowUpIcon,
+  ArrowLongUpIcon,
+  ArrowLongDownIcon,
+  ArrowsPointingOutIcon,
   PlayIcon,
   PauseIcon,
   PlusIcon,
-  MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
+  SparklesIcon,
+  ViewfinderCircleIcon,
+  CameraIcon,
+  UserIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
 import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
@@ -62,52 +70,55 @@ const ANGLE_PRESETS = [
   {
     id: "upscale",
     label: "Upscale",
-    icon: "⬆",
     prompt: "Upscale this image. Keep all details of the original image exactly the same. Same person, same pose, same clothing, same environment, same lighting, same camera angle, same composition. Enhance resolution and sharpness only",
   },
   {
     id: "clean",
     label: "Clean up",
-    icon: "✦",
     prompt: "Recreate this exact same scene with the exact same person, clothing, environment, lighting, and mood. Same camera angle. Remove any artifacts, noise, or compression. Highest quality, sharp details",
   },
   {
     id: "closeup",
     label: "Close-up",
-    icon: "◉",
     prompt: "Close-up shot of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Focus on face and upper body. Sharp details, cinematic",
   },
   {
     id: "wide",
     label: "Wide shot",
-    icon: "▭",
     prompt: "Wide establishing shot of the exact same scene with the same person. Same clothing, same environment, same lighting, same mood. Show full environment and surroundings. Cinematic composition",
   },
   {
     id: "low",
     label: "Low angle",
-    icon: "⏶",
     prompt: "Low angle shot looking up at the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Dramatic perspective from below. Cinematic",
   },
   {
     id: "high",
     label: "High angle",
-    icon: "⏷",
     prompt: "High angle shot looking down at the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Bird's eye perspective. Cinematic",
   },
   {
     id: "profile",
     label: "Profile",
-    icon: "◧",
     prompt: "Side profile view of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. 90-degree side angle. Cinematic",
   },
   {
     id: "over-shoulder",
     label: "Over shoulder",
-    icon: "◨",
     prompt: "Over-the-shoulder shot of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Slight depth of field. Cinematic",
   },
 ] as const;
+
+const ANGLE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  upscale: ArrowUpIcon,
+  clean: SparklesIcon,
+  closeup: ViewfinderCircleIcon,
+  wide: ArrowsPointingOutIcon,
+  low: ArrowLongUpIcon,
+  high: ArrowLongDownIcon,
+  profile: UserIcon,
+  "over-shoulder": EyeIcon,
+};
 
 interface AngleVariant {
   id: string;
@@ -1923,7 +1934,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* ================================================================== */}
       {/* TIMELINE */}
       {/* ================================================================== */}
-      <div className={`${clips.some((c) => c.lastFrame && c.status === "done") ? "h-[200px]" : "h-[140px]"} flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col transition-all`}>
+      <div className={`${clips.some((c) => c.lastFrame && c.status === "done") ? "h-[200px]" : "h-[140px]"} flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col transition-all relative overflow-visible`}>
         {/* Playback controls row */}
         <div className="h-[30px] flex items-center px-3 border-b border-neutral-800/50 gap-3">
           <button
@@ -2156,7 +2167,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
         {/* Angle track — appears when any clip has a last frame */}
         {clips.some((c) => c.lastFrame && c.status === "done") && (
-          <div className="h-[50px] px-3 py-1 overflow-x-auto flex items-center gap-1.5 border-t border-neutral-800/50">
+          <div className="h-[50px] px-3 py-1 overflow-visible flex items-center gap-1.5 border-t border-neutral-800/50">
             {/* Spacer for input image column */}
             {inputImage && (
               <div className="flex-shrink-0 h-[38px]" style={{ aspectRatio: "9/16" }} />
@@ -2186,7 +2197,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                       }`}
                       title="Generate camera angle variant"
                     >
-                      <span className="text-sm">📷</span>
+                      <CameraIcon className="w-4 h-4" />
                     </button>
 
                     {/* Angle picker dropdown */}
@@ -2198,7 +2209,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                             onClick={() => handleGenerateAngle(clip.id, preset.id)}
                             className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-left hover:bg-neutral-700 transition-colors"
                           >
-                            <span className="text-xs">{preset.icon}</span>
+                            {(() => { const Icon = ANGLE_ICONS[preset.id]; return Icon ? <Icon className="w-3.5 h-3.5 text-neutral-400" /> : null; })()}
                             <span className="text-[10px] text-neutral-300">{preset.label}</span>
                           </button>
                         ))}
@@ -2245,10 +2256,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                               alt={variant.presetId}
                               className="w-full h-full object-cover"
                             />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0">
-                              <span className="text-[7px] text-violet-400 font-medium truncate block">
-                                {ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.icon ?? ""}
-                              </span>
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0.5 flex items-center justify-center">
+                              {(() => { const Icon = ANGLE_ICONS[variant.presetId]; return Icon ? <Icon className="w-2.5 h-2.5 text-violet-400" /> : null; })()}
                             </div>
                           </button>
                         ) : null}
