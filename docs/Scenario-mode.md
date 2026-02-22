@@ -15,16 +15,17 @@ Full-screen, no header. Three-column layout with a fixed timeline bar at the bot
 │ ← Back │                   │  Prompt             │
 │  Input │                   │  Evasion technique   │
 │  New → │    Video          │  Evasion output      │
-│        │    Preview        │  ────────────────── │
-│  9:16  │    (center)       │  Duration | Ratio   │
-│  Input │                   │  Resolution          │
-│  Photo │                   │  ☑ Use last frame   │
+│        │    Preview        │  Evasion output      │
+│  9:16  │    (center)       │  Continuity [on/off] │
+│  Input │                   │  ────────────────── │
+│  Photo │                   │  Duration | Ratio   │
+│        │                   │  Res | ☑ Last frame │
 │        │                   │  [▶ Generate]       │
 ├────────┴───────────────────┴────────────────────┤
 │  ▶ 0:00 / 1:24      🔁 loop         [Export]   │
 │  ──────── scrubber bar with playhead ────────   │
-│  [IN][clip1][→F1][clip2][→F2][clip3]            │
-│                                          1px    │
+│  [IN][variants][clip1][→F1][variants][clip2]... │
+│  ... [→NEXT]                             1px    │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -42,10 +43,11 @@ Shows one of:
 - **Error message** — on generation failure
 - **Active clip video** — with thumbnail behind to prevent flash on load; click to play/pause
 - **Active clip thumbnail** — if video hasn't loaded yet
-- **Input image** — when no clip is selected
+- **Preview image** — when a frame or variant is clicked (separate from input image)
+- **Input image** — when no clip is selected and no preview active
 - **Empty placeholder** — when nothing is loaded
 
-Hover reveals a play/pause overlay. Displays clip number, duration, and model name below.
+Hover reveals a play/pause overlay. Displays clip number, duration, and model name below. Spacebar toggles play/pause.
 
 ### Right Panel — Controls (320px, scrollable)
 
@@ -53,15 +55,95 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 |---------|-------------|
 | **Prompt** | Main text prompt (80px textarea) |
 | **Evasion** | Technique dropdown + editable transformed output textarea. Shows char diff (`+N chars`, `in → out`). Uses `applyEvasion()` from `@/utils/promptEvasion` |
+| **Continuity** | Toggle (on by default) + modifier chips. Appends camera/motion instructions after evasion output to keep clip transitions consistent. Default modifiers: "Static camera", "Smooth motion", "Consistent light" |
 | **Parameters** | Duration slider (1–15s), Aspect Ratio (9:16, 16:9, 1:1), Resolution (480p, 720p), "Use last frame" checkbox |
 | **Generate** | Full-width button. Shows **Regenerate** (amber) when a clip is selected, **Generate** (blue) otherwise |
 
-### Timeline (bottom bar, full-width)
+### Timeline (bottom bar, full-width, 200px)
 
 - **Top row**: Play/Pause, time counter (`current / total`), loop toggle, Export button
 - **Scrubber bar**: Draggable playhead with clip boundary markers and progress fill. Supports click-and-drag scrubbing (pauses during drag, resumes after)
-- **Clip track**: Horizontally scrollable. Input image thumbnail (`IN`), clip thumbnails (width proportional to duration), last-frame thumbnails (`F1`, `F2`, ...) between clips with `→` arrows. Click any frame to use it as input
+- **Clip track**: Horizontally scrollable. All thumbnails are 70px tall with 9:16 aspect ratio.
+  - `IN` thumbnail (green border) — original input image, with camera + arrow overlay buttons on hover
+  - Input angle variants (violet border) — generated from IN image, appear right after IN
+  - Video clips (blue border when active) — width proportional to duration, with delete button on hover
+  - Last-frame thumbnails (`F1`, `F2`, ...) between clips with `→` arrows (orange border)
+  - Clip angle variants (violet border) — generated from frames, appear after each frame
+  - `NEXT` thumbnail (green border) — appears at end when a variant/frame is set as the next input
 - **Time labels**: Second markers (every 5s)
+
+**Thumbnail overlay buttons** (on hover for frames, variants, and IN):
+- **Camera** (top-left, violet) — open angle variant picker
+- **Arrow →** (bottom-left, green) — set this image as next generation input (shows as NEXT at end of timeline)
+- **X** (top-right, red on hover) — delete variant
+
+## Camera Angle Variants
+
+Generate fresh high-quality images from frames or the input image using different camera perspectives. This combats quality degradation from chaining multiple video generations.
+
+### Angle Presets
+
+22 total presets organized into direct presets and grouped orbit presets:
+
+**Direct presets** (14):
+
+| Preset | Description |
+|--------|-------------|
+| Upscale | Enhance resolution and sharpness only |
+| Clean up | Recreate scene removing artifacts and noise |
+| Close-up | Face and upper body focus |
+| Wide shot | Full environment establishing shot |
+| Low angle | Dramatic perspective from below |
+| High angle | Bird's eye perspective from above |
+| Profile | 90-degree side view |
+| Over shoulder | Over-the-shoulder with depth of field |
+| Medium shot | Waist-up framing |
+| Dutch angle | Tilted camera rotation |
+| POV | First-person perspective |
+| Behind | View from behind the subject |
+| Extreme CU | Tight crop on eyes and nose |
+| Mirror | Horizontally flipped reflection |
+
+**Grouped presets** (8, in nested submenus):
+
+| Group | Presets |
+|-------|---------|
+| Orbit Camera | Left 45°, Right 45°, Left 90°, Right 90° — camera moves around frozen subject |
+| Orbit Person | Turn left 45°, Turn right 45°, Turn left 90°, Turn right 90° — subject rotates like a mannequin on turntable |
+
+### Prompt Engineering
+
+All presets append `ANGLE_LOCK` — an aggressive suffix that enforces:
+- Single continuous image (anti-collage)
+- Same location, background, setting
+- Same person appearance: face, skin tone, ethnicity, body type, hair, makeup, clothing, accessories
+- Same lighting, brightness, exposure, color temperature
+- Photorealistic output
+
+Orbit camera presets additionally enforce "FROZEN like a statue" — zero pose change, no arm/leg/hand/foot movement. Orbit person presets use "mannequin on a turntable" — rigid body rotation only.
+
+### Generation Flow
+
+1. Hover a frame/variant/IN thumbnail → click camera button (top-left)
+2. Dropdown opens upward with preset list (fixed position, z-70)
+3. Orbit groups open a submenu to the right (fixed position, z-80)
+4. Hovering a preset shows its full prompt as a tooltip
+5. Click a preset → calls `/api/generate` with:
+   - `mediaType: "image"`
+   - `selectedModel: { provider: "xai", modelId: "grok-imagine-image" }`
+   - `images: [sourceImage]`
+   - `prompt: preset.prompt` (includes ANGLE_LOCK)
+   - `parameters: { aspect_ratio }` — preserves current aspect ratio
+6. Result saved to `<project>/angles/angle_<timestamp>.png`
+7. Variant appears as violet-bordered thumbnail next to its source
+
+### Variant Chaining
+
+Variants can be chained — click the camera button on any variant to generate another angle from that already-rendered image. The source image flows through `anglePickerSourceImage` state to `handleGenerateAngle`.
+
+### NEXT Input
+
+Click the green arrow button (bottom-left on hover) on any frame, variant, or IN image to set it as the next generation input. It appears as a green-bordered "NEXT" thumbnail at the end of the timeline. The X button on NEXT reverts to the last clip's frame.
 
 ## Evasion System
 
@@ -83,6 +165,29 @@ Techniques are organized by estimated bypass rate:
 | Well-known | Leetspeak, Mixed Case, Reversed | ~15–25% |
 
 Each clip stores both `rawPrompt` (original) and `prompt` (evasion-applied), plus which `evasionTechnique` was used. Clicking a clip loads its prompt and technique back into the form.
+
+## Continuity System
+
+Each clip is generated independently, so the model has no context that it's continuing a sequence. The continuity system appends camera/motion instructions **after** the evasion-transformed prompt (evasion only applies to the creative content, not the camera instructions).
+
+**Base instruction** (always appended when enabled):
+> seamlessly continue this scene from the input frame, maintain consistent style, atmosphere, brightness, and exposure
+
+**Toggleable modifiers** (chip buttons, multiple can be active):
+
+| Modifier | Prompt appended |
+|----------|----------------|
+| Static camera | `static camera, no camera movement` |
+| Slow pan | `slow smooth pan` |
+| Slow zoom in | `slow subtle zoom in` |
+| No cuts | `no scene cuts, no transitions` |
+| Consistent light | `maintain exact same brightness, exposure, color temperature, and lighting throughout, no darkening or brightening` |
+| Smooth motion | `smooth continuous motion, no sudden movements` |
+| Eye contact | `person looking directly at camera, direct eye contact with viewer, facing the camera` |
+
+**Defaults**: Enabled with "Static camera" + "Smooth motion" + "Consistent light" active.
+
+**Prompt assembly order**: `[evasion(user prompt)]. [base continuity], [modifier1], [modifier2]`
 
 ## Video Export
 
@@ -114,6 +219,7 @@ Timeout: 20 seconds. On failure, falls back gracefully (clip still works, just n
 - **Looping**: Toggle in timeline toolbar — restarts from beginning when reaching the end
 - **Clip switching**: Tracks active clip via `prevClipRef` to avoid unnecessary re-renders. On clip change, waits two animation frames for React to render new video src before playing
 - **Scrubbing**: Click-and-drag on the scrubber bar. Pauses playback during drag, resumes after mouseup if it was playing before
+- **Keyboard**: Spacebar toggles play/pause (ignored when focused on input/textarea/select)
 
 ## Core Workflow
 
@@ -122,12 +228,24 @@ Timeout: 20 seconds. On failure, falls back gracefully (clip still works, just n
 3. Select evasion technique — preview transformed output
 4. Click **Generate** — clip appears on timeline
 5. Last frame is extracted and set as next input (if enabled)
-6. Click a clip to load its prompt/technique, modify, and regenerate or generate next
-7. Export all clips as a single MP4
+6. Optionally generate angle variants from frames or IN image to get clean camera angles
+7. Use arrow button on any variant/frame to set as NEXT input for continued generation
+8. Click a clip to load its prompt/technique, modify, and regenerate or generate next
+9. Export all clips as a single MP4
 
-## Clip Data Model
+## Data Model
 
 ```typescript
+interface AngleVariant {
+  id: string;
+  clipId: string;              // parent clip ID or "__input__" for IN variants
+  presetId: string;            // which angle preset was used
+  image: string | null;        // data URL or API URL
+  imagePath: string | null;    // relative path on disk
+  status: "generating" | "done" | "error";
+  error?: string;
+}
+
 interface Clip {
   id: string;
   thumbnail: string | null;         // runtime display URL
@@ -140,6 +258,7 @@ interface Clip {
   prompt: string;                    // evasion-applied prompt
   rawPrompt: string;                 // original prompt
   evasionTechnique: EvasionTechnique;
+  angleVariants: AngleVariant[];     // angle variants generated from this clip's frame
   status: "idle" | "generating" | "done" | "error";
   error?: string;
 }
@@ -149,8 +268,9 @@ interface Clip {
 
 - App mode (`workflow` or `scenario`) persists in `localStorage` under `node-banana-app-mode`
 - Scenario state saves to disk as JSON in the project directory via `/api/scenario`
-- Saved fields: `inputImagePath`, `prompt`, `evasionTechnique`, `duration`, `aspectRatio`, `resolution`, `useLastFrame`, `clips` (with paths), `activeClipId`
-- On load, `"generating"` status clips are reset to `"done"` to avoid stuck state
+- Saved fields: `inputImagePath`, `originalInputImagePath`, `inputAngleVariants`, `prompt`, `evasionTechnique`, `continuityEnabled`, `activeModifiers`, `duration`, `aspectRatio`, `resolution`, `useLastFrame`, `clips` (with paths and angle variants), `activeClipId`
+- `originalInputImagePath` tracks the first uploaded image separately so the IN thumbnail always shows the original even when a variant is set as current input
+- On load, `"generating"` status clips/variants are reset to avoid stuck state
 
 ## Disk Structure
 
@@ -159,7 +279,7 @@ interface Clip {
   inputs/          # Uploaded input images
   generations/     # Generated video files
   frames/          # Extracted last-frame PNGs
+  angles/          # Generated angle variant PNGs
   exports/         # Stitched export MP4s
-  thumbnails/      # (legacy, replaced by frames/)
   scenario.json    # Persisted state
 ```

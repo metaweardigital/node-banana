@@ -21,6 +21,11 @@ import {
   CameraIcon,
   UserIcon,
   EyeIcon,
+  HandRaisedIcon,
+  ArrowsRightLeftIcon,
+  FilmIcon,
+  ArrowUturnLeftIcon,
+  ArrowRightIcon,
 } from "@heroicons/react/24/outline";
 import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
@@ -62,50 +67,133 @@ const CONTINUITY_MODIFIERS = [
   { id: "slow-pan", label: "Slow pan", prompt: "slow smooth pan" },
   { id: "slow-zoom", label: "Slow zoom in", prompt: "slow subtle zoom in" },
   { id: "no-cuts", label: "No cuts", prompt: "no scene cuts, no transitions" },
-  { id: "consistent-lighting", label: "Consistent light", prompt: "consistent lighting throughout" },
+  { id: "consistent-lighting", label: "Consistent light", prompt: "maintain exact same brightness, exposure, color temperature, and lighting throughout, no darkening or brightening" },
   { id: "smooth-motion", label: "Smooth motion", prompt: "smooth continuous motion, no sudden movements" },
+  { id: "eye-contact", label: "Eye contact", prompt: "person looking directly at camera, direct eye contact with viewer, facing the camera" },
 ] as const;
+
+const ANGLE_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. DO NOT alter the person's appearance in any way. Photorealistic, sharp details";
 
 const ANGLE_PRESETS = [
   {
     id: "upscale",
     label: "Upscale",
-    prompt: "Upscale this image. Keep all details of the original image exactly the same. Same person, same pose, same clothing, same environment, same lighting, same camera angle, same composition. Enhance resolution and sharpness only",
+    prompt: `Upscale this image. Keep absolutely everything identical — same composition, same framing, same person, same pose, same background. Only enhance resolution and sharpness. ${ANGLE_LOCK}`,
   },
   {
     id: "clean",
     label: "Clean up",
-    prompt: "Recreate this exact same scene with the exact same person, clothing, environment, lighting, and mood. Same camera angle. Remove any artifacts, noise, or compression. Highest quality, sharp details",
+    prompt: `Recreate this exact image with higher quality. Same camera angle, same framing, same composition. Remove artifacts, noise, and compression only. ${ANGLE_LOCK}`,
   },
   {
     id: "closeup",
     label: "Close-up",
-    prompt: "Close-up shot of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Focus on face and upper body. Sharp details, cinematic",
+    prompt: `Close-up shot focusing on the face and upper body. Camera moves closer to the subject but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "wide",
     label: "Wide shot",
-    prompt: "Wide establishing shot of the exact same scene with the same person. Same clothing, same environment, same lighting, same mood. Show full environment and surroundings. Cinematic composition",
+    prompt: `Pull the camera back to show more of the SAME space. Wider framing of the EXACT same location visible in the input. DO NOT invent new surroundings — only reveal more of what is already there. ${ANGLE_LOCK}`,
   },
   {
     id: "low",
     label: "Low angle",
-    prompt: "Low angle shot looking up at the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Dramatic perspective from below. Cinematic",
+    prompt: `Low angle shot looking upward at the subject from below. Camera tilts up but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "high",
     label: "High angle",
-    prompt: "High angle shot looking down at the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Bird's eye perspective. Cinematic",
+    prompt: `High angle shot looking down at the subject from above. Camera tilts down but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "profile",
     label: "Profile",
-    prompt: "Side profile view of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. 90-degree side angle. Cinematic",
+    prompt: `Side profile view of the subject, 90-degree side angle. Camera rotates around the subject but stays in the EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "over-shoulder",
     label: "Over shoulder",
-    prompt: "Over-the-shoulder shot of the same person in the exact same scene. Same clothing, same environment, same lighting, same mood. Slight depth of field. Cinematic",
+    prompt: `Over-the-shoulder perspective of the subject. Camera moves behind the subject but stays in the EXACT same location. Slight depth of field. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "medium",
+    label: "Medium shot",
+    prompt: `Medium shot framing the subject from the waist up. Classic conversational framing. Camera stays in the EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "dutch",
+    label: "Dutch angle",
+    prompt: `Rotate the entire image 15 degrees clockwise. Do NOT regenerate or reimagine anything. Just tilt/rotate the existing image. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "pov",
+    label: "POV",
+    prompt: `First-person point-of-view shot showing what the subject is looking at. Camera positioned at the subject's eye level facing the direction they face. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "behind",
+    label: "Behind",
+    prompt: `Camera positioned directly behind the subject, looking forward over their head or shoulder into the scene. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "extreme-closeup",
+    label: "Extreme CU",
+    prompt: `Single extreme close-up of the subject's eyes and nose area. One continuous image, NOT a collage, NOT split, NOT multiple views. Crop tightly into the face from the input image. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "mirror",
+    label: "Mirror flip",
+    prompt: `Horizontally mirror/flip this exact image. Single image, NOT a collage, NOT side-by-side. Everything is reversed left-to-right but otherwise completely identical. ${ANGLE_LOCK}`,
+  },
+  // --- Orbit Camera (camera moves, person stays FROZEN) ---
+  {
+    id: "cam-orbit-left-45",
+    label: "Cam orbit left 45°",
+    group: "Orbit Camera",
+    prompt: `Move the virtual camera 45 degrees to the LEFT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. The background shifts naturally because we are seeing the scene from a different camera position. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "cam-orbit-right-45",
+    label: "Cam orbit right 45°",
+    group: "Orbit Camera",
+    prompt: `Move the virtual camera 45 degrees to the RIGHT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. The background shifts naturally because we are seeing the scene from a different camera position. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "cam-orbit-left-90",
+    label: "Cam orbit left 90°",
+    group: "Orbit Camera",
+    prompt: `Move the virtual camera 90 degrees to the LEFT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. We now see the scene from a completely different camera angle. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "cam-orbit-right-90",
+    label: "Cam orbit right 90°",
+    group: "Orbit Camera",
+    prompt: `Move the virtual camera 90 degrees to the RIGHT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. We now see the scene from a completely different camera angle. EXACT same location. ${ANGLE_LOCK}`,
+  },
+  // --- Orbit Person (person rotates, camera stays) ---
+  {
+    id: "person-orbit-left-45",
+    label: "Person turn left 45°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "person-orbit-right-45",
+    label: "Person turn right 45°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "person-orbit-left-90",
+    label: "Person turn left 90°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable, showing their right side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
+    id: "person-orbit-right-90",
+    label: "Person turn right 90°",
+    group: "Orbit Person",
+    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable, showing their left side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
   },
 ] as const;
 
@@ -118,6 +206,20 @@ const ANGLE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGEleme
   high: ArrowLongDownIcon,
   profile: UserIcon,
   "over-shoulder": EyeIcon,
+  medium: FilmIcon,
+  dutch: ArrowsRightLeftIcon,
+  pov: HandRaisedIcon,
+  behind: ArrowUturnLeftIcon,
+  "extreme-closeup": ViewfinderCircleIcon,
+  mirror: ArrowsRightLeftIcon,
+  "cam-orbit-left-45": ArrowLeftIcon,
+  "cam-orbit-right-45": ArrowRightIcon,
+  "cam-orbit-left-90": ArrowLeftIcon,
+  "cam-orbit-right-90": ArrowRightIcon,
+  "person-orbit-left-45": ArrowLeftIcon,
+  "person-orbit-right-45": ArrowRightIcon,
+  "person-orbit-left-90": ArrowLeftIcon,
+  "person-orbit-right-90": ArrowRightIcon,
 };
 
 interface AngleVariant {
@@ -130,7 +232,7 @@ interface AngleVariant {
   error?: string;
 }
 
-const BASE_CONTINUITY = "seamlessly continue this scene from the input frame, maintain consistent style and atmosphere";
+const BASE_CONTINUITY = "seamlessly continue this scene from the input frame, maintain consistent style, atmosphere, brightness, and exposure";
 
 // ============================================================================
 // Persistence — saves to user-chosen project directory via /api/scenario
@@ -148,6 +250,13 @@ interface ScenarioProject {
 // Persisted state — uses file paths instead of base64
 interface ScenarioStateDisk {
   inputImagePath: string | null;
+  originalInputImagePath?: string | null;
+  inputAngleVariants?: Array<{
+    id: string;
+    presetId: string;
+    imagePath: string | null;
+    status: "done" | "error";
+  }>;
   prompt: string;
   evasionTechnique: EvasionTechnique;
   continuityEnabled: boolean;
@@ -205,6 +314,9 @@ function saveProjects(projects: ScenarioProject[]) {
 interface LoadedScenarioState {
   inputImage: string | null;
   inputImagePath: string | null;
+  originalInputImage: string | null;
+  originalInputImagePath: string | null;
+  inputAngleVariants: AngleVariant[];
   prompt: string;
   evasionTechnique: EvasionTechnique;
   continuityEnabled: boolean;
@@ -237,6 +349,12 @@ async function loadScenarioStateFromDisk(directoryPath: string): Promise<LoadedS
       inputImage = disk.inputImage;
     }
 
+    // Resolve original input image (the first upload, not a variant)
+    const originalInputImagePath = disk.originalInputImagePath ?? null;
+    const originalInputImage = originalInputImagePath
+      ? resolveImagePath(originalInputImagePath, directoryPath)
+      : inputImage; // fallback: treat current input as original if no separate original saved
+
     const clips: Clip[] = (disk.clips ?? []).map((c) => ({
       id: c.id,
       thumbnail: resolveImagePath(c.thumbnailPath, directoryPath),
@@ -260,9 +378,21 @@ async function loadScenarioStateFromDisk(directoryPath: string): Promise<LoadedS
       status: c.status === "generating" ? "done" : c.status, // reset stuck generating state
     }));
 
+    const inputAngleVariants: AngleVariant[] = (disk.inputAngleVariants ?? []).map((av) => ({
+      id: av.id,
+      clipId: "__input__",
+      presetId: av.presetId,
+      image: resolveImagePath(av.imagePath, directoryPath),
+      imagePath: av.imagePath,
+      status: av.status,
+    }));
+
     return {
       inputImage,
       inputImagePath,
+      originalInputImage,
+      originalInputImagePath,
+      inputAngleVariants,
       prompt: disk.prompt ?? "",
       evasionTechnique: disk.evasionTechnique ?? "zwsp",
       continuityEnabled: disk.continuityEnabled ?? true,
@@ -285,6 +415,8 @@ function saveScenarioStateToDisk(
   directoryPath: string,
   state: {
     inputImagePath: string | null;
+    originalInputImagePath: string | null;
+    inputAngleVariants: AngleVariant[];
     prompt: string;
     evasionTechnique: EvasionTechnique;
     continuityEnabled: boolean;
@@ -301,6 +433,15 @@ function saveScenarioStateToDisk(
   saveTimer = setTimeout(() => {
     const diskState: ScenarioStateDisk = {
       inputImagePath: state.inputImagePath,
+      originalInputImagePath: state.originalInputImagePath,
+      inputAngleVariants: state.inputAngleVariants
+        .filter((av): av is AngleVariant & { status: "done" | "error" } => av.status !== "generating")
+        .map((av) => ({
+          id: av.id,
+          presetId: av.presetId,
+          imagePath: av.imagePath,
+          status: av.status,
+        })),
       prompt: state.prompt,
       evasionTechnique: state.evasionTechnique,
       continuityEnabled: state.continuityEnabled,
@@ -437,7 +578,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   // Input photo
   const [inputImage, setInputImage] = useState<string | null>(null);
   const [inputImagePath, setInputImagePath] = useState<string | null>(null);
+  const [originalInputImage, setOriginalInputImage] = useState<string | null>(null);
+  const [originalInputImagePath, setOriginalInputImagePath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [inputAngleVariants, setInputAngleVariants] = useState<AngleVariant[]>([]);
 
   // Prompt & evasion
   const [prompt, setPrompt] = useState("");
@@ -447,7 +591,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
   // Continuity
   const [continuityEnabled, setContinuityEnabled] = useState(true);
-  const [activeModifiers, setActiveModifiers] = useState<Set<string>>(new Set(["static-camera", "smooth-motion"]));
+  const [activeModifiers, setActiveModifiers] = useState<Set<string>>(new Set(["static-camera", "smooth-motion", "consistent-lighting"]));
 
   // Parameters
   const [duration, setDuration] = useState(12);
@@ -469,6 +613,12 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
   // Angle variants
   const [anglePickerClipId, setAnglePickerClipId] = useState<string | null>(null);
+  const [anglePickerPos, setAnglePickerPos] = useState<{ x: number; y: number } | null>(null);
+  const [anglePickerSourceImage, setAnglePickerSourceImage] = useState<string | null>(null);
+  const [angleSubmenu, setAngleSubmenu] = useState<string | null>(null);
+  const [angleSubmenuPos, setAngleSubmenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingToTimeline, setIsDraggingToTimeline] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null); // standalone image preview (frame/variant click)
 
   // Generating state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -541,6 +691,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       if (saved) {
         setInputImage(saved.inputImage ?? null);
         setInputImagePath(saved.inputImagePath ?? null);
+        setOriginalInputImage(saved.originalInputImage ?? saved.inputImage ?? null);
+        setOriginalInputImagePath(saved.originalInputImagePath ?? saved.inputImagePath ?? null);
+        setInputAngleVariants(saved.inputAngleVariants ?? []);
         setPrompt(saved.prompt ?? "");
         setEvasionTechnique(saved.evasionTechnique ?? "zwsp");
         // Recompute evasion output from saved state
@@ -567,11 +720,14 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const resetState = useCallback(() => {
     setInputImage(null);
     setInputImagePath(null);
+    setOriginalInputImage(null);
+    setOriginalInputImagePath(null);
+    setInputAngleVariants([]);
     setPrompt("");
     setEvasionTechnique("zwsp");
     setEvasionOutput(null);
     setContinuityEnabled(true);
-    setActiveModifiers(new Set(["static-camera", "smooth-motion"]));
+    setActiveModifiers(new Set(["static-camera", "smooth-motion", "consistent-lighting"]));
     setDuration(12);
     setAspectRatio("9:16");
     setResolution("480p");
@@ -627,6 +783,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     if (!isLoaded || !activeProject) return;
     saveScenarioStateToDisk(activeProject.directoryPath, {
       inputImagePath,
+      originalInputImagePath,
+      inputAngleVariants,
       prompt,
       evasionTechnique,
       continuityEnabled,
@@ -638,7 +796,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       clips,
       activeClipId,
     });
-  }, [isLoaded, activeProject, inputImagePath, prompt, evasionTechnique, continuityEnabled, activeModifiers, duration, aspectRatio, resolution, useLastFrame, clips, activeClipId]);
+  }, [isLoaded, activeProject, inputImagePath, originalInputImagePath, inputAngleVariants, prompt, evasionTechnique, continuityEnabled, activeModifiers, duration, aspectRatio, resolution, useLastFrame, clips, activeClipId]);
 
   // ---- Handlers ----
 
@@ -697,6 +855,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     } catch {
       // If crop fails, use original
     }
+    setOriginalInputImage(dataUrl);
     if (!activeProject) {
       setInputImage(dataUrl);
       setInputImagePath(null);
@@ -720,10 +879,12 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       if (result.success && result.filePath) {
         const relativePath = `inputs/${result.filename}`;
         setInputImagePath(relativePath);
+        setOriginalInputImagePath(relativePath);
         setInputImage(imageUrl(result.filePath));
       } else {
         setInputImage(dataUrl);
         setInputImagePath(null);
+        setOriginalInputImagePath(null);
       }
     } catch {
       setInputImage(dataUrl);
@@ -997,15 +1158,20 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     }
   }, [prompt, xaiApiKey, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject, useLastFrame]);
 
-  // Generate an angle variant image from a clip's last frame
-  const handleGenerateAngle = useCallback(async (clipId: string, presetId: string) => {
-    const clip = clips.find((c) => c.id === clipId);
-    if (!clip?.lastFrame) return;
+  // Generate an angle variant image from a clip's last frame or a variant image
+  const handleGenerateAngle = useCallback(async (clipId: string, presetId: string, sourceImage?: string) => {
+    const isInputImage = clipId === "__input__";
+    const clip = isInputImage ? null : clips.find((c) => c.id === clipId);
+    const imgSrc = sourceImage || (isInputImage ? (originalInputImage || inputImage) : clip?.lastFrame);
+    if (!imgSrc) return;
 
     const preset = ANGLE_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
 
     setAnglePickerClipId(null);
+    setAnglePickerPos(null);
+    setAnglePickerSourceImage(null);
+    setAngleSubmenu(null);
 
     const variantId = `angle-${Date.now()}`;
     const newVariant: AngleVariant = {
@@ -1017,22 +1183,26 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       status: "generating",
     };
 
-    // Add variant to clip
-    setClips((prev) =>
-      prev.map((c) =>
-        c.id === clipId
-          ? { ...c, angleVariants: [...c.angleVariants, newVariant] }
-          : c
-      )
-    );
+    // Add variant to clip or input variants
+    if (isInputImage) {
+      setInputAngleVariants((prev) => [...prev, newVariant]);
+    } else {
+      setClips((prev) =>
+        prev.map((c) =>
+          c.id === clipId
+            ? { ...c, angleVariants: [...c.angleVariants, newVariant] }
+            : c
+        )
+      );
+    }
 
     try {
-      // Resolve frame image for API
+      // Resolve source image for API
       let frameForApi: string;
-      if (clip.lastFrame.startsWith("data:")) {
-        frameForApi = clip.lastFrame;
-      } else if (clip.lastFrame.startsWith("/api/")) {
-        const imgRes = await fetch(clip.lastFrame);
+      if (imgSrc.startsWith("data:")) {
+        frameForApi = imgSrc;
+      } else if (imgSrc.startsWith("/api/")) {
+        const imgRes = await fetch(imgSrc);
         const blob = await imgRes.blob();
         frameForApi = await new Promise<string>((resolve) => {
           const reader = new FileReader();
@@ -1040,7 +1210,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           reader.readAsDataURL(blob);
         });
       } else {
-        frameForApi = clip.lastFrame;
+        frameForApi = imgSrc;
       }
 
       const headers: Record<string, string> = {
@@ -1059,7 +1229,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
             modelId: "grok-imagine-image",
             displayName: "Grok Image",
           },
-          parameters: {},
+          parameters: {
+            aspect_ratio: aspectRatio,
+          },
           mediaType: "image",
         }),
       });
@@ -1100,38 +1272,38 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       }
 
       // Update variant as done
-      setClips((prev) =>
-        prev.map((c) =>
-          c.id === clipId
-            ? {
-                ...c,
-                angleVariants: c.angleVariants.map((av) =>
-                  av.id === variantId
-                    ? { ...av, image: imageDisplay, imagePath, status: "done" as const }
-                    : av
-                ),
-              }
-            : c
-        )
-      );
+      const updateDone = (av: AngleVariant) =>
+        av.id === variantId ? { ...av, image: imageDisplay, imagePath, status: "done" as const } : av;
+
+      if (isInputImage) {
+        setInputAngleVariants((prev) => prev.map(updateDone));
+      } else {
+        setClips((prev) =>
+          prev.map((c) =>
+            c.id === clipId
+              ? { ...c, angleVariants: c.angleVariants.map(updateDone) }
+              : c
+          )
+        );
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Angle generation failed";
-      setClips((prev) =>
-        prev.map((c) =>
-          c.id === clipId
-            ? {
-                ...c,
-                angleVariants: c.angleVariants.map((av) =>
-                  av.id === variantId
-                    ? { ...av, status: "error" as const, error: errorMsg }
-                    : av
-                ),
-              }
-            : c
-        )
-      );
+      const updateErr = (av: AngleVariant) =>
+        av.id === variantId ? { ...av, status: "error" as const, error: errorMsg } : av;
+
+      if (isInputImage) {
+        setInputAngleVariants((prev) => prev.map(updateErr));
+      } else {
+        setClips((prev) =>
+          prev.map((c) =>
+            c.id === clipId
+              ? { ...c, angleVariants: c.angleVariants.map(updateErr) }
+              : c
+          )
+        );
+      }
     }
-  }, [clips, xaiApiKey, activeProject]);
+  }, [clips, xaiApiKey, activeProject, aspectRatio, originalInputImage, inputImage]);
 
   // Stop playback and animation loop
   const stopPlayback = useCallback(() => {
@@ -1148,6 +1320,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const handleClipClick = useCallback((clipId: string) => {
     stopPlayback();
     setActiveClipId(clipId);
+    setPreviewImage(null);
     setGlobalTime(getClipStartTime(clipId));
     // Load clip's prompt/technique into the editable form
     const clip = clips.find((c) => c.id === clipId);
@@ -1344,6 +1517,26 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (isPlayingRef.current) {
+          stopPlayback();
+        } else {
+          startPlayback();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [stopPlayback, startPlayback]);
 
   // Toggle play/pause
   const togglePlayback = useCallback(() => {
@@ -1676,6 +1869,19 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               <div className="text-xs text-neutral-500">
                 Clip {clips.findIndex((c) => c.id === activeClip.id) + 1} /{" "}
                 {activeClip.duration}s / Grok Video
+              </div>
+            </div>
+          ) : previewImage && !activeClipId ? (
+            <div className="flex flex-col items-center gap-3 max-h-full p-6">
+              <div className="flex-1 min-h-0 flex items-center justify-center">
+                <img
+                  src={previewImage}
+                  alt="Preview"
+                  className="max-w-full max-h-[calc(100vh-280px)] rounded-lg"
+                />
+              </div>
+              <div className="text-xs text-neutral-500">
+                Preview
               </div>
             </div>
           ) : inputImage && !activeClipId ? (
@@ -2043,27 +2249,137 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
         {/* Clip track */}
         <div className="flex-1 px-3 py-2 overflow-x-auto overflow-y-visible flex items-center gap-1.5">
-          {/* Input image as first timeline item */}
-          {inputImage && (
-            <button
-              onClick={() => {
-                stopPlayback();
-                setActiveClipId(null);
-              }}
-              className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative ${
-                !activeClipId ? "border-green-500" : "border-neutral-700 hover:border-neutral-600"
-              }`}
-              style={{ aspectRatio: "9/16" }}
-            >
-              <img
-                src={inputImage}
-                alt="Input"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                <span className="text-[8px] text-green-400 font-medium">IN</span>
-              </div>
-            </button>
+          {/* Input image as first timeline item — always shows original upload */}
+          {(originalInputImage || inputImage) && (
+            <div className="flex-shrink-0 h-[70px] relative group/inimg">
+              <button
+                onClick={() => {
+                  stopPlayback();
+                  setActiveClipId(null);
+                  setPreviewImage(originalInputImage || inputImage || null);
+                }}
+                className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative cursor-pointer ${
+                  previewImage === (originalInputImage || inputImage) ? "border-green-500" : "border-neutral-700 hover:border-neutral-600"
+                }`}
+                style={{ aspectRatio: "9/16" }}
+                title="Preview original input image"
+              >
+                <img
+                  src={originalInputImage || inputImage!}
+                  alt="Input"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                  <span className="text-[8px] text-green-400 font-medium">IN</span>
+                </div>
+              </button>
+              {/* Camera button overlay — generate angle variant from IN image */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setAnglePickerClipId("__input__");
+                  setAnglePickerPos({ x: rect.left, y: rect.top });
+                  setAnglePickerSourceImage(originalInputImage || inputImage || null);
+                }}
+                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/inimg:opacity-100 z-10"
+                title="Generate angle variant from input image"
+              >
+                <CameraIcon className="w-3 h-3" />
+              </button>
+              {/* "Use as next input" button — bottom left */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveClipId(null);
+                  setInputImage(originalInputImage || inputImage);
+                  setInputImagePath(originalInputImagePath || inputImagePath);
+                }}
+                className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/inimg:opacity-100 z-10"
+                title="Use as next input"
+              >
+                <ArrowRightIcon className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* Angle variants generated from IN image */}
+          {inputAngleVariants.length > 0 && (
+            <div className="flex-shrink-0 flex items-center gap-1.5">
+              {inputAngleVariants.map((variant) => (
+                <div key={variant.id} className="flex-shrink-0 h-[70px]">
+                  {variant.status === "generating" ? (
+                    <div className="h-[70px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
+                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                    </div>
+                  ) : variant.status === "error" ? (
+                    <div
+                      className="h-[70px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
+                      style={{ aspectRatio: "9/16" }}
+                      title={variant.error || "Generation failed"}
+                      onClick={() => setInputAngleVariants((prev) => prev.filter((av) => av.id !== variant.id))}
+                    >
+                      <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
+                    </div>
+                  ) : variant.image ? (
+                    <div className="relative group/variant">
+                      <button
+                        onClick={() => {
+                          setActiveClipId(null);
+                          setPreviewImage(variant.image);
+                        }}
+                        className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
+                        style={{ aspectRatio: "9/16" }}
+                        title={`Preview ${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId}`}
+                      >
+                        <img src={variant.image} alt={variant.presetId} className="w-full h-full object-cover" />
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                          <span className="text-[7px] text-violet-400 font-medium">
+                            {ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? ""}
+                          </span>
+                        </div>
+                      </button>
+                      {/* Camera button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setAnglePickerClipId("__input__");
+                          setAnglePickerPos({ x: rect.left, y: rect.top });
+                          setAnglePickerSourceImage(variant.image);
+                        }}
+                        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                        title="Generate another angle from this variant"
+                      >
+                        <CameraIcon className="w-3 h-3" />
+                      </button>
+                      {/* Use as next input */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveClipId(null);
+                          setInputImage(variant.image);
+                          if (variant.imagePath) setInputImagePath(variant.imagePath);
+                        }}
+                        className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                        title="Use as next input"
+                      >
+                        <ArrowRightIcon className="w-3 h-3" />
+                      </button>
+                      {/* Delete */}
+                      <div
+                        className="absolute -top-1 -right-1 opacity-0 group-hover/variant:opacity-100 transition-opacity cursor-pointer z-10"
+                        onClick={() => setInputAngleVariants((prev) => prev.filter((av) => av.id !== variant.id))}
+                      >
+                        <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                          <XMarkIcon className="w-2.5 h-2.5 text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           )}
 
           {clips.length === 0 && !inputImage ? (
@@ -2131,57 +2447,135 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     </div>
                   </button>
 
-                  {/* Last frame + angle variants (horizontal, same height as clips) */}
+                  {/* Last frame + angle variants (all same size, horizontal) */}
                   {clip.lastFrame && clip.status === "done" && (
                     <div className="flex-shrink-0 flex items-center gap-1.5">
                       <div className="text-neutral-600 text-[10px]">&rarr;</div>
-                      {/* Frame thumbnail */}
-                      <button
-                        onClick={() => {
-                          setActiveClipId(null);
-                          setInputImage(clip.lastFrame);
-                          if (clip.lastFramePath) setInputImagePath(clip.lastFramePath);
-                        }}
-                        className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
-                        style={{ aspectRatio: "9/16" }}
-                        title="Click to use as input image"
-                      >
-                        <img
-                          src={clip.lastFrame}
-                          alt={`Frame ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                          <span className="text-[8px] text-orange-400 font-medium">F{index + 1}</span>
-                        </div>
-                      </button>
-
-                      {/* Camera button + variant thumbnails (vertical grid next to frame) */}
-                      <div className="flex-shrink-0 flex flex-wrap gap-0.5 h-[70px] items-start content-start relative">
-                        {/* Camera button */}
+                      {/* Frame thumbnail with camera button overlay */}
+                      <div className="flex-shrink-0 h-[70px] relative group/frame">
                         <button
-                          onClick={() => setAnglePickerClipId(anglePickerClipId === clip.id ? null : clip.id)}
-                          className={`w-[32px] h-[32px] rounded border border-dashed flex items-center justify-center transition-colors ${
-                            anglePickerClipId === clip.id
-                              ? "border-violet-500 bg-violet-500/10 text-violet-400"
-                              : "border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300"
-                          }`}
-                          title="Generate camera angle variant"
+                          onClick={() => {
+                            setActiveClipId(null);
+                            setPreviewImage(clip.lastFrame);
+                          }}
+                          className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
+                          style={{ aspectRatio: "9/16" }}
+                          title="Preview this frame"
                         >
-                          <CameraIcon className="w-3.5 h-3.5" />
+                          <img
+                            src={clip.lastFrame}
+                            alt={`Frame ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                            <span className="text-[8px] text-orange-400 font-medium">F{index + 1}</span>
+                          </div>
                         </button>
+                        {/* Camera button overlay */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setAnglePickerClipId(clip.id);
+                            setAnglePickerPos({ x: rect.left, y: rect.top });
+                            setAnglePickerSourceImage(clip.lastFrame);
+                          }}
+                          className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/frame:opacity-100 z-10"
+                          title="Generate angle variant from this frame"
+                        >
+                          <CameraIcon className="w-3 h-3" />
+                        </button>
+                        {/* "Use as next input" button — bottom left */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveClipId(null);
+                            setInputImage(clip.lastFrame);
+                            if (clip.lastFramePath) setInputImagePath(clip.lastFramePath);
+                          }}
+                          className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/frame:opacity-100 z-10"
+                          title="Use as next input"
+                        >
+                          <ArrowRightIcon className="w-3 h-3" />
+                        </button>
+                      </div>
 
-                        {/* Generated variant thumbnails */}
-                        {clip.angleVariants.map((variant) => (
-                          <div key={variant.id} className="flex-shrink-0">
-                            {variant.status === "generating" ? (
-                              <div className="w-[32px] h-[32px] rounded border border-violet-500/40 bg-neutral-800 flex items-center justify-center">
-                                <div className="w-2.5 h-2.5 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
-                              </div>
-                            ) : variant.status === "error" ? (
+                      {/* Variant thumbnails — same size as frame */}
+                      {clip.angleVariants.map((variant) => (
+                        <div key={variant.id} className="flex-shrink-0 h-[70px]">
+                          {variant.status === "generating" ? (
+                            <div className="h-[70px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
+                              <div className="w-4 h-4 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                            </div>
+                          ) : variant.status === "error" ? (
+                            <div
+                              className="h-[70px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
+                              style={{ aspectRatio: "9/16" }}
+                              title={variant.error || "Generation failed"}
+                              onClick={() => {
+                                setClips((prev) =>
+                                  prev.map((c) =>
+                                    c.id === clip.id
+                                      ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variant.id) }
+                                      : c
+                                  )
+                                );
+                              }}
+                            >
+                              <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
+                            </div>
+                          ) : variant.image ? (
+                            <div className="relative group/variant">
+                              <button
+                                onClick={() => {
+                                  setActiveClipId(null);
+                                  setPreviewImage(variant.image);
+                                }}
+                                className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
+                                style={{ aspectRatio: "9/16" }}
+                                title={`Preview ${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId}`}
+                              >
+                                <img
+                                  src={variant.image}
+                                  alt={variant.presetId}
+                                  className="w-full h-full object-cover"
+                                />
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                                  <span className="text-[7px] text-violet-400 font-medium">
+                                    {ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? ""}
+                                  </span>
+                                </div>
+                              </button>
+                              {/* Camera button overlay — top left */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  setAnglePickerClipId(clip.id);
+                                  setAnglePickerPos({ x: rect.left, y: rect.top });
+                                  setAnglePickerSourceImage(variant.image);
+                                }}
+                                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                                title="Generate another angle from this variant"
+                              >
+                                <CameraIcon className="w-3 h-3" />
+                              </button>
+                              {/* "Use as next input" button — bottom left */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveClipId(null);
+                                  setInputImage(variant.image);
+                                  if (variant.imagePath) setInputImagePath(variant.imagePath);
+                                }}
+                                className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                                title="Use as next input"
+                              >
+                                <ArrowRightIcon className="w-3 h-3" />
+                              </button>
+                              {/* Delete button — top right */}
                               <div
-                                className="w-[32px] h-[32px] rounded border border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
-                                title={variant.error || "Generation failed"}
+                                className="absolute -top-1 -right-1 opacity-0 group-hover/variant:opacity-100 transition-opacity cursor-pointer z-10"
                                 onClick={() => {
                                   setClips((prev) =>
                                     prev.map((c) =>
@@ -2192,51 +2586,87 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   );
                                 }}
                               >
-                                <ExclamationTriangleIcon className="w-2.5 h-2.5 text-red-500/70" />
+                                <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
+                                  <XMarkIcon className="w-2.5 h-2.5 text-white" />
+                                </div>
                               </div>
-                            ) : variant.image ? (
-                              <button
-                                onClick={() => {
-                                  setActiveClipId(null);
-                                  setInputImage(variant.image);
-                                  if (variant.imagePath) setInputImagePath(variant.imagePath);
-                                }}
-                                className="w-[32px] h-[32px] rounded overflow-hidden border border-violet-500/40 hover:border-violet-400 transition-colors cursor-pointer"
-                                title={`${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId} — click to use as input`}
-                              >
-                                <img
-                                  src={variant.image}
-                                  alt={variant.presetId}
-                                  className="w-full h-full object-cover"
-                                />
-                              </button>
-                            ) : null}
-                          </div>
-                        ))}
-
-                        {/* Angle picker dropdown */}
-                        {anglePickerClipId === clip.id && (
-                          <div className="absolute bottom-full left-0 mb-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl z-50 p-1.5 min-w-[140px]">
-                            {ANGLE_PRESETS.map((preset) => (
-                              <button
-                                key={preset.id}
-                                onClick={() => handleGenerateAngle(clip.id, preset.id)}
-                                className="w-full flex items-center gap-1.5 px-2 py-1 rounded text-left hover:bg-neutral-700 transition-colors"
-                              >
-                                {(() => { const Icon = ANGLE_ICONS[preset.id]; return Icon ? <Icon className="w-3.5 h-3.5 text-neutral-400" /> : null; })()}
-                                <span className="text-[10px] text-neutral-300">{preset.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
               ))}
 
-              {/* Empty spacer after last clip */}
-              <div className="flex-shrink-0 w-2" />
+              {/* "Next input" image at end of timeline — shown when user selected a variant/frame as next input */}
+              {clips.length > 0 && inputImage && inputImage !== (originalInputImage || "") && (
+                <div
+                  className="flex-shrink-0 flex items-center gap-1.5"
+                >
+                  <div className="text-green-500 text-[10px]">&rarr;</div>
+                  <div
+                    className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-green-500/60 relative"
+                    style={{ aspectRatio: "9/16" }}
+                  >
+                    <img
+                      src={inputImage}
+                      alt="Next input"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                      <span className="text-[8px] text-green-400 font-medium">NEXT</span>
+                    </div>
+                    {/* Remove button — always visible inside thumbnail */}
+                    <button
+                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                      onClick={() => {
+                        const lastClip = clips[clips.length - 1];
+                        if (lastClip?.lastFrame) {
+                          setInputImage(lastClip.lastFrame);
+                          if (lastClip.lastFramePath) setInputImagePath(lastClip.lastFramePath);
+                        }
+                      }}
+                      title="Remove — revert to last frame"
+                    >
+                      <XMarkIcon className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Drop zone at end of timeline */}
+              <div
+                className={`flex-shrink-0 h-[70px] rounded-md border-2 border-dashed flex items-center justify-center transition-all ${
+                  isDraggingToTimeline
+                    ? "w-[60px] border-green-500/60 bg-green-500/10"
+                    : "w-2 border-transparent"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "copy";
+                }}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const imageData = e.dataTransfer.getData("text/plain");
+                  const imagePath = e.dataTransfer.getData("application/x-imagepath");
+                  if (imageData) {
+                    setActiveClipId(null);
+                    setInputImage(imageData);
+                    if (imagePath) setInputImagePath(imagePath);
+                  }
+                  setIsDraggingToTimeline(false);
+                }}
+              >
+                {isDraggingToTimeline && (
+                  <span className="text-[8px] text-green-400 font-medium text-center leading-tight">
+                    Drop<br />here
+                  </span>
+                )}
+              </div>
             </>
           )}
         </div>
@@ -2244,6 +2674,81 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         {/* Bottom spacer */}
         <div className="h-1" />
       </div>
+
+      {/* Angle picker dropdown — fixed position to escape overflow clipping */}
+      {anglePickerClipId && anglePickerPos && (
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => { setAnglePickerClipId(null); setAnglePickerPos(null); setAnglePickerSourceImage(null); setAngleSubmenu(null); }} />
+          <div
+            className="fixed z-[70] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl p-1.5 min-w-[180px] max-h-[70vh] overflow-y-auto"
+            style={{ left: anglePickerPos.x, bottom: window.innerHeight - anglePickerPos.y + 4 }}
+          >
+            {/* Direct presets (no group) */}
+            {ANGLE_PRESETS.filter((p) => !(p as { group?: string }).group).map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => handleGenerateAngle(anglePickerClipId, preset.id, anglePickerSourceImage ?? undefined)}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left hover:bg-neutral-700 transition-colors"
+                title={preset.prompt}
+              >
+                {(() => { const Icon = ANGLE_ICONS[preset.id]; return Icon ? <Icon className="w-3.5 h-3.5 text-neutral-400" /> : null; })()}
+                <span className="text-[11px] text-neutral-300">{preset.label}</span>
+              </button>
+            ))}
+            {/* Grouped presets as submenu triggers */}
+            {(() => {
+              const groups = [...new Set(ANGLE_PRESETS.map((p) => (p as { group?: string }).group).filter(Boolean))] as string[];
+              return groups.map((group) => (
+                <div key={group}>
+                  <div className="border-t border-neutral-700 my-1" />
+                  <button
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setAngleSubmenu(group);
+                      setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
+                    }}
+                    onClick={(e) => {
+                      if (angleSubmenu === group) {
+                        setAngleSubmenu(null);
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setAngleSubmenu(group);
+                        setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors ${
+                      angleSubmenu === group ? "bg-neutral-700" : "hover:bg-neutral-700"
+                    }`}
+                  >
+                    <span className="text-[11px] text-neutral-300 font-medium">{group}</span>
+                    <ArrowRightIcon className="w-3 h-3 text-neutral-500" />
+                  </button>
+                </div>
+              ));
+            })()}
+          </div>
+          {/* Submenu — also fixed position */}
+          {angleSubmenu && angleSubmenuPos && (
+            <div
+              className="fixed z-[80] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl p-1.5 min-w-[180px]"
+              style={{ left: angleSubmenuPos.x, top: angleSubmenuPos.y }}
+              onMouseLeave={() => setAngleSubmenu(null)}
+            >
+              {ANGLE_PRESETS.filter((p) => (p as { group?: string }).group === angleSubmenu).map((preset) => (
+                <button
+                  key={preset.id}
+                  onClick={() => handleGenerateAngle(anglePickerClipId!, preset.id, anglePickerSourceImage ?? undefined)}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left hover:bg-neutral-700 transition-colors"
+                  title={preset.prompt}
+                >
+                  {(() => { const Icon = ANGLE_ICONS[preset.id]; return Icon ? <Icon className="w-3.5 h-3.5 text-neutral-400" /> : null; })()}
+                  <span className="text-[11px] text-neutral-300">{preset.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
