@@ -1934,7 +1934,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* ================================================================== */}
       {/* TIMELINE */}
       {/* ================================================================== */}
-      <div className="h-[170px] flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col relative overflow-visible">
+      <div className="h-[140px] flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col relative overflow-visible">
         {/* Playback controls row */}
         <div className="h-[30px] flex items-center px-3 border-b border-neutral-800/50 gap-3">
           <button
@@ -2042,7 +2042,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         </div>
 
         {/* Clip track */}
-        <div className="flex-1 px-3 py-2 overflow-x-auto overflow-y-visible flex items-start gap-1.5">
+        <div className="flex-1 px-3 py-2 overflow-x-auto overflow-y-visible flex items-center gap-1.5">
           {/* Input image as first timeline item */}
           {inputImage && (
             <button
@@ -2077,7 +2077,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               {clips.map((clip, index) => (
                 <div
                   key={clip.id}
-                  className="flex-shrink-0 flex items-start gap-1.5"
+                  className="flex-shrink-0 flex items-center gap-1.5"
                 >
                   {/* Video clip — width proportional to duration */}
                   <button
@@ -2131,90 +2131,88 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     </div>
                   </button>
 
-                  {/* Last frame + angle variants column */}
+                  {/* Last frame + angle variants (horizontal, same height as clips) */}
                   {clip.lastFrame && clip.status === "done" && (
-                    <div className="flex-shrink-0 flex items-start gap-1.5">
-                      <div className="text-neutral-600 text-[10px] mt-7">&rarr;</div>
-                      <div className="flex flex-col gap-1 relative">
-                        {/* Frame thumbnail */}
+                    <div className="flex-shrink-0 flex items-center gap-1.5">
+                      <div className="text-neutral-600 text-[10px]">&rarr;</div>
+                      {/* Frame thumbnail */}
+                      <button
+                        onClick={() => {
+                          setActiveClipId(null);
+                          setInputImage(clip.lastFrame);
+                          if (clip.lastFramePath) setInputImagePath(clip.lastFramePath);
+                        }}
+                        className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
+                        style={{ aspectRatio: "9/16" }}
+                        title="Click to use as input image"
+                      >
+                        <img
+                          src={clip.lastFrame}
+                          alt={`Frame ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
+                          <span className="text-[8px] text-orange-400 font-medium">F{index + 1}</span>
+                        </div>
+                      </button>
+
+                      {/* Camera button + variant thumbnails (vertical grid next to frame) */}
+                      <div className="flex-shrink-0 flex flex-wrap gap-0.5 h-[70px] items-start content-start relative">
+                        {/* Camera button */}
                         <button
-                          onClick={() => {
-                            setActiveClipId(null);
-                            setInputImage(clip.lastFrame);
-                            if (clip.lastFramePath) setInputImagePath(clip.lastFramePath);
-                          }}
-                          className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
-                          style={{ aspectRatio: "9/16" }}
-                          title="Click to use as input image"
+                          onClick={() => setAnglePickerClipId(anglePickerClipId === clip.id ? null : clip.id)}
+                          className={`w-[32px] h-[32px] rounded border border-dashed flex items-center justify-center transition-colors ${
+                            anglePickerClipId === clip.id
+                              ? "border-violet-500 bg-violet-500/10 text-violet-400"
+                              : "border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300"
+                          }`}
+                          title="Generate camera angle variant"
                         >
-                          <img
-                            src={clip.lastFrame}
-                            alt={`Frame ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                            <span className="text-[8px] text-orange-400 font-medium">F{index + 1}</span>
-                          </div>
+                          <CameraIcon className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Angle variants row below frame */}
-                        <div className="flex items-center gap-1">
-                          {/* Camera button */}
-                          <button
-                            onClick={() => setAnglePickerClipId(anglePickerClipId === clip.id ? null : clip.id)}
-                            className={`flex-shrink-0 w-[26px] h-[26px] rounded border border-dashed flex items-center justify-center transition-colors ${
-                              anglePickerClipId === clip.id
-                                ? "border-violet-500 bg-violet-500/10 text-violet-400"
-                                : "border-neutral-700 hover:border-neutral-500 text-neutral-500 hover:text-neutral-300"
-                            }`}
-                            title="Generate camera angle variant"
-                          >
-                            <CameraIcon className="w-3 h-3" />
-                          </button>
-
-                          {/* Generated variant thumbnails */}
-                          {clip.angleVariants.map((variant) => (
-                            <div key={variant.id} className="flex-shrink-0">
-                              {variant.status === "generating" ? (
-                                <div className="w-[26px] h-[26px] rounded border border-violet-500/40 bg-neutral-800 flex items-center justify-center">
-                                  <div className="w-2.5 h-2.5 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
-                                </div>
-                              ) : variant.status === "error" ? (
-                                <div
-                                  className="w-[26px] h-[26px] rounded border border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
-                                  title={variant.error || "Generation failed"}
-                                  onClick={() => {
-                                    setClips((prev) =>
-                                      prev.map((c) =>
-                                        c.id === clip.id
-                                          ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variant.id) }
-                                          : c
-                                      )
-                                    );
-                                  }}
-                                >
-                                  <ExclamationTriangleIcon className="w-2.5 h-2.5 text-red-500/70" />
-                                </div>
-                              ) : variant.image ? (
-                                <button
-                                  onClick={() => {
-                                    setActiveClipId(null);
-                                    setInputImage(variant.image);
-                                    if (variant.imagePath) setInputImagePath(variant.imagePath);
-                                  }}
-                                  className="flex-shrink-0 w-[26px] h-[26px] rounded overflow-hidden border border-violet-500/40 hover:border-violet-400 transition-colors cursor-pointer"
-                                  title={`${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId} — click to use as input`}
-                                >
-                                  <img
-                                    src={variant.image}
-                                    alt={variant.presetId}
-                                    className="w-full h-full object-cover"
-                                  />
-                                </button>
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
+                        {/* Generated variant thumbnails */}
+                        {clip.angleVariants.map((variant) => (
+                          <div key={variant.id} className="flex-shrink-0">
+                            {variant.status === "generating" ? (
+                              <div className="w-[32px] h-[32px] rounded border border-violet-500/40 bg-neutral-800 flex items-center justify-center">
+                                <div className="w-2.5 h-2.5 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                              </div>
+                            ) : variant.status === "error" ? (
+                              <div
+                                className="w-[32px] h-[32px] rounded border border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
+                                title={variant.error || "Generation failed"}
+                                onClick={() => {
+                                  setClips((prev) =>
+                                    prev.map((c) =>
+                                      c.id === clip.id
+                                        ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variant.id) }
+                                        : c
+                                    )
+                                  );
+                                }}
+                              >
+                                <ExclamationTriangleIcon className="w-2.5 h-2.5 text-red-500/70" />
+                              </div>
+                            ) : variant.image ? (
+                              <button
+                                onClick={() => {
+                                  setActiveClipId(null);
+                                  setInputImage(variant.image);
+                                  if (variant.imagePath) setInputImagePath(variant.imagePath);
+                                }}
+                                className="w-[32px] h-[32px] rounded overflow-hidden border border-violet-500/40 hover:border-violet-400 transition-colors cursor-pointer"
+                                title={`${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId} — click to use as input`}
+                              >
+                                <img
+                                  src={variant.image}
+                                  alt={variant.presetId}
+                                  className="w-full h-full object-cover"
+                                />
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
 
                         {/* Angle picker dropdown */}
                         {anglePickerClipId === clip.id && (
