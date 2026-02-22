@@ -1268,6 +1268,23 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         }
       }
 
+      // Appearance reference composite for video generation
+      // When enabled and the current input differs from the original upload,
+      // composite the original face alongside the input so the AI preserves identity
+      let promptForVideo = fullPrompt;
+      if (faceReferenceEnabled && imageForApi) {
+        const refImage = originalInputImage || inputImage;
+        if (refImage && refImage !== inputImage) {
+          try {
+            const refDataUrl = await resolveToDataUrl(refImage);
+            imageForApi = await compositeWithReference(imageForApi, refDataUrl);
+            promptForVideo = `IMPORTANT: The input contains TWO images side by side, separated by a white vertical line. The LARGE image on the LEFT is the scene to animate as video. The SMALL image on the RIGHT is ONLY a reference showing the person's full appearance — do NOT include it in the output, do NOT generate a split or composite video. Output a SINGLE video that animates the LEFT scene only. Use the RIGHT reference to maintain EXACT consistency throughout the entire video of: face, skin tone, hair style and color, makeup, clothing, accessories (jewelry, watches, glasses, hats, bags, belts), tattoos, and every other visible detail of the person's appearance. ${fullPrompt}`;
+          } catch {
+            // Composite failed — proceed with just the input image
+          }
+        }
+      }
+
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
@@ -1278,7 +1295,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         headers,
         signal: abortController.signal,
         body: JSON.stringify({
-          prompt: fullPrompt,
+          prompt: promptForVideo,
           images: imageForApi ? [imageForApi] : [],
           selectedModel: {
             provider: "xai",
@@ -1514,7 +1531,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         try {
           const refDataUrl = await resolveToDataUrl(refImage);
           frameForApi = await compositeWithReference(frameForApi, refDataUrl);
-          promptForApi = `IMPORTANT: The input contains TWO images side by side, separated by a white vertical line. The LARGE image on the LEFT is the scene to edit and transform. The SMALL image on the RIGHT is ONLY a face/identity reference showing what this person looks like from the front — do NOT include it in the output, do NOT generate a split or composite image. Output a SINGLE image that is a transformation of the LEFT scene only, but use the RIGHT face reference to keep the person's exact face and identity. ${promptForApi}`;
+          promptForApi = `IMPORTANT: The input contains TWO images side by side, separated by a white vertical line. The LARGE image on the LEFT is the scene to edit and transform. The SMALL image on the RIGHT is ONLY a reference showing the person's full appearance — do NOT include it in the output, do NOT generate a split or composite image. Output a SINGLE image that is a transformation of the LEFT scene only. Use the RIGHT reference to maintain EXACT consistency of: face, skin tone, hair style and color, makeup, clothing, accessories (jewelry, watches, glasses, hats, bags, belts), tattoos, and every other visible detail of the person's appearance. ${promptForApi}`;
         } catch {
           // Composite failed — proceed with just the source image
         }
@@ -2430,9 +2447,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
             )}
           </div>
 
-          {/* Face reference toggle */}
+          {/* Appearance reference toggle */}
           <div className="px-3 py-1.5 border-b border-neutral-800 flex items-center justify-between">
-            <span className="text-[10px] text-neutral-400">Face reference (IN image)</span>
+            <span className="text-[10px] text-neutral-400">Appearance reference (IN image)</span>
             <button
               onClick={() => setFaceReferenceEnabled(!faceReferenceEnabled)}
               className={`relative w-7 h-[16px] rounded-full transition-colors ${
