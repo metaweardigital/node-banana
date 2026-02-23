@@ -34,6 +34,8 @@ import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
   getProviderSettings,
 } from "@/store/utils/localStorage";
+import { buildGenerateHeaders } from "@/store/utils/buildApiHeaders";
+import type { ProviderType } from "@/types";
 import { useStitchVideos, type StitchProgress } from "@/hooks/useStitchVideos";
 import {
   EvasionTechnique,
@@ -884,9 +886,6 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const [projectError, setProjectError] = useState<string | null>(null);
   const [isBrowsing, setIsBrowsing] = useState(false);
 
-  // API key — read from provider settings (same as workflow editor), falls back to server .env
-  const [xaiApiKey, setXaiApiKey] = useState<string | null>(null);
-
   // Input photo
   const [inputImage, setInputImage] = useState<string | null>(null);
   const [inputImagePath, setInputImagePath] = useState<string | null>(null);
@@ -915,6 +914,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   });
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [faceReferenceEnabled, setFaceReferenceEnabled] = useState(false);
+  const [imageProvider, setImageProvider] = useState<"xai" | "gemini">("xai");
 
   // Parameters
   const [duration, setDuration] = useState(12);
@@ -989,13 +989,6 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     }
     return 0;
   }, [playableClips]);
-
-  // Load API key from provider settings
-  useEffect(() => {
-    const settings = getProviderSettings();
-    const key = settings.providers.xai?.apiKey;
-    if (key) setXaiApiKey(key);
-  }, []);
 
   // Load projects list and check for last active project
   useEffect(() => {
@@ -1331,14 +1324,12 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       // (side-by-side composite causes the video model to squish both images together)
       const promptForVideo = fullPrompt;
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (xaiApiKey) headers["X-XAI-Key"] = xaiApiKey;
+      const providerSettings = getProviderSettings();
+      const videoHeaders = buildGenerateHeaders("xai", providerSettings);
 
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers,
+        headers: videoHeaders,
         signal: abortController.signal,
         body: JSON.stringify({
           prompt: promptForVideo,
@@ -1511,7 +1502,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       setIsGenerating(false);
       generateAbortRef.current = null;
     }
-  }, [prompt, xaiApiKey, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject]);
+  }, [prompt, buildFullPrompt, duration, aspectRatio, resolution, inputImage, inputImagePath, activeProject]);
 
   // Generate an angle variant image from a clip's last frame or a variant image
   const handleGenerateAngle = useCallback(async (clipId: string, presetId: string, sourceImage?: string, customPrompt?: string) => {
@@ -1603,25 +1594,28 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         }
       }
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (xaiApiKey) headers["X-XAI-Key"] = xaiApiKey;
+      const providerSettings = getProviderSettings();
+      const imgModelId = imageProvider === "gemini" ? "nano-banana-pro" : "grok-imagine-image-pro";
+      const imgDisplayName = imageProvider === "gemini" ? "Nano Banana Pro" : "Grok Image Pro";
+      const imgHeaders = buildGenerateHeaders(imageProvider, providerSettings);
 
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers,
+        headers: imgHeaders,
         signal: abortController.signal,
         body: JSON.stringify({
           prompt: promptForApi,
           images: [frameForApi],
           selectedModel: {
-            provider: "xai",
-            modelId: "grok-imagine-image",
-            displayName: "Grok Image",
+            provider: imageProvider as ProviderType,
+            modelId: imgModelId,
+            displayName: imgDisplayName,
           },
+          aspectRatio,
+          ...(imageProvider === "gemini" && { resolution: "2K" }),
           parameters: {
             aspect_ratio: aspectRatio,
+            ...(imageProvider === "xai" && { resolution: "2k" }),
           },
           mediaType: "image",
         }),
@@ -1705,7 +1699,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     } finally {
       angleAbortRefs.current.delete(variantId);
     }
-  }, [clips, xaiApiKey, activeProject, aspectRatio, originalInputImage, inputImage, cinematicState, faceReferenceEnabled, customRefImage]);
+  }, [clips, activeProject, aspectRatio, originalInputImage, inputImage, cinematicState, faceReferenceEnabled, customRefImage, imageProvider]);
 
   // Cancel an in-progress angle variant generation
   const cancelAngleVariant = useCallback((variantId: string, clipId: string) => {
@@ -2310,12 +2304,12 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               </div>
             </div>
           ) : previewImage && !activeClipId ? (
-            <div className="flex flex-col items-center gap-3 max-h-full p-6">
-              <div className="flex-1 min-h-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 h-full overflow-hidden p-6">
+              <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
                 <img
                   src={previewImage}
                   alt="Preview"
-                  className="max-w-full max-h-[calc(100vh-280px)] rounded-lg"
+                  className="max-w-full max-h-full object-contain rounded-lg"
                 />
               </div>
               <div className="text-xs text-neutral-500">
@@ -2544,6 +2538,33 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Image provider selector */}
+          <div className="px-3 py-1.5 border-b border-neutral-800 flex items-center justify-between">
+            <span className="text-[10px] text-neutral-400">Image model</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setImageProvider("xai")}
+                className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                  imageProvider === "xai"
+                    ? "bg-blue-600 text-white"
+                    : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                Grok
+              </button>
+              <button
+                onClick={() => setImageProvider("gemini")}
+                className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                  imageProvider === "gemini"
+                    ? "bg-blue-600 text-white"
+                    : "bg-neutral-800 text-neutral-400 hover:text-neutral-200"
+                }`}
+              >
+                NanoBanana
+              </button>
+            </div>
           </div>
 
           {/* Appearance reference toggle */}
@@ -2782,7 +2803,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                 className={`flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 transition-colors relative cursor-pointer ${
                   previewImage === (originalInputImage || inputImage) ? "border-green-500" : "border-neutral-700 hover:border-neutral-600"
                 }`}
-                style={{ aspectRatio: "9/16" }}
+                style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                 title="Preview original input image"
               >
                 <img
@@ -2830,7 +2851,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
               {inputAngleVariants.map((variant) => (
                 <div key={variant.id} className="flex-shrink-0 h-[200px]">
                   {variant.status === "generating" ? (
-                    <div className="relative h-[200px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
+                    <div className="relative h-[200px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: aspectRatio.replace(":", "/") }}>
                       <div className="w-6 h-6 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
                       <button
                         onClick={() => cancelAngleVariant(variant.id, "__input__")}
@@ -2842,12 +2863,19 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     </div>
                   ) : variant.status === "error" ? (
                     <div
-                      className="h-[200px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
-                      style={{ aspectRatio: "9/16" }}
+                      className="relative h-[200px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex flex-col items-center justify-center gap-1.5 px-1.5"
+                      style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                       title={variant.error || "Generation failed"}
-                      onClick={() => setInputAngleVariants((prev) => prev.filter((av) => av.id !== variant.id))}
                     >
-                      <ExclamationTriangleIcon className="w-6 h-6 text-red-500/70" />
+                      <ExclamationTriangleIcon className="w-8 h-8 text-red-500/70" />
+                      <span className="text-[9px] text-red-400/80 text-center leading-tight line-clamp-3">{variant.error || "Failed"}</span>
+                      <button
+                        onClick={() => setInputAngleVariants((prev) => prev.filter((av) => av.id !== variant.id))}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-red-600 flex items-center justify-center transition-colors"
+                        title="Dismiss"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5 text-white" />
+                      </button>
                     </div>
                   ) : variant.image ? (
                     <div className="relative group/variant">
@@ -2857,7 +2885,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                           setPreviewImage(variant.image);
                         }}
                         className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
-                        style={{ aspectRatio: "9/16" }}
+                        style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                         title={`Preview ${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId}`}
                       >
                         <img src={variant.image} alt={variant.presetId} className="w-full h-full object-cover" />
@@ -2922,9 +2950,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   className="flex-shrink-0 flex items-center gap-1.5"
                 >
                   {/* Video clip — width proportional to duration */}
-                  <button
+                  <div
                     onClick={() => handleClipClick(clip.id)}
-                    className={`flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 transition-colors relative group ${
+                    className={`flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 transition-colors relative group cursor-pointer ${
                       activeClipId === clip.id
                         ? "border-blue-500"
                         : clip.status === "error"
@@ -2969,7 +2997,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     >
                       <XMarkIcon className="w-3.5 h-3.5 text-white" />
                     </button>
-                  </button>
+                  </div>
 
                   {/* Last frame + angle variants (all same size, horizontal) */}
                   {clip.lastFrame && clip.status === "done" && (
@@ -2983,7 +3011,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                             setPreviewImage(clip.lastFrame);
                           }}
                           className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
-                          style={{ aspectRatio: "9/16" }}
+                          style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                           title="Preview this frame"
                         >
                           <img
@@ -3028,7 +3056,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                       {clip.angleVariants.map((variant) => (
                         <div key={variant.id} className="flex-shrink-0 h-[200px]">
                           {variant.status === "generating" ? (
-                            <div className="relative h-[200px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
+                            <div className="relative h-[200px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: aspectRatio.replace(":", "/") }}>
                               <div className="w-6 h-6 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
                               <button
                                 onClick={() => cancelAngleVariant(variant.id, clip.id)}
@@ -3040,20 +3068,27 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                             </div>
                           ) : variant.status === "error" ? (
                             <div
-                              className="h-[200px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
-                              style={{ aspectRatio: "9/16" }}
+                              className="relative h-[200px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex flex-col items-center justify-center gap-1.5 px-1.5"
+                              style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                               title={variant.error || "Generation failed"}
-                              onClick={() => {
-                                setClips((prev) =>
-                                  prev.map((c) =>
-                                    c.id === clip.id
-                                      ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variant.id) }
-                                      : c
-                                  )
-                                );
-                              }}
                             >
-                              <ExclamationTriangleIcon className="w-6 h-6 text-red-500/70" />
+                              <ExclamationTriangleIcon className="w-8 h-8 text-red-500/70" />
+                              <span className="text-[9px] text-red-400/80 text-center leading-tight line-clamp-3">{variant.error || "Failed"}</span>
+                              <button
+                                onClick={() => {
+                                  setClips((prev) =>
+                                    prev.map((c) =>
+                                      c.id === clip.id
+                                        ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variant.id) }
+                                        : c
+                                    )
+                                  );
+                                }}
+                                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-red-600 flex items-center justify-center transition-colors"
+                                title="Dismiss"
+                              >
+                                <XMarkIcon className="w-3.5 h-3.5 text-white" />
+                              </button>
                             </div>
                           ) : variant.image ? (
                             <div className="relative group/variant">
@@ -3063,7 +3098,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   setPreviewImage(variant.image);
                                 }}
                                 className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
-                                style={{ aspectRatio: "9/16" }}
+                                style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                                 title={`Preview ${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId}`}
                               >
                                 <img
@@ -3137,7 +3172,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   <div className="text-green-500 text-[10px]">&rarr;</div>
                   <div
                     className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-green-500/60 relative"
-                    style={{ aspectRatio: "9/16" }}
+                    style={{ aspectRatio: aspectRatio.replace(":", "/") }}
                   >
                     <img
                       src={inputImage}

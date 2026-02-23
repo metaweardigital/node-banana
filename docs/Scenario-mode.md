@@ -23,6 +23,7 @@ Full-screen, no header. Three-column layout with a fixed timeline bar at the bot
 │        │                   │   ▶ Color            │
 │        │                   │   ▶ Body             │
 │        │                   │   ▶ Scene            │
+│        │                   │  Image model [Grok]  │
 │        │                   │  Appearance ref [on]  │
 │        │                   │  Duration | Ratio    │
 │        │                   │  Res                 │
@@ -62,6 +63,7 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 | **Prompt** | Main text prompt (80px textarea) |
 | **Evasion** | Technique dropdown + editable transformed output textarea. Shows char diff (`+N chars`, `in → out`). Uses `applyEvasion()` from `@/utils/promptEvasion` |
 | **Controls** | Toggle (on by default) + collapsible cinematic groups (Camera, Lighting, Lens, Mood, Color, Body, Scene). Multiple groups can be open simultaneously. Each chip shows a tooltip with its full prompt on hover |
+| **Image model** | Toggle between **Grok** (xAI `grok-imagine-image-pro`) and **NanoBanana** (Gemini `nano-banana-pro`) for angle variant image generation. Video generation always uses xAI |
 | **Appearance reference** | Toggle (on by default). When enabled, both angle variant generation and video generation composite the original input image alongside the current frame to preserve full appearance consistency (face, clothing, accessories, tattoos, etc.) |
 | **Parameters** | Duration slider (1–15s), Aspect Ratio (9:16, 16:9, 1:1), Resolution (480p, 720p) |
 | **Generate** | Full-width button. Shows **Cancel** (red) during generation, **Regenerate** (amber) when a clip is selected, **Generate** (blue) otherwise. Cancel aborts the API call and removes the placeholder clip |
@@ -70,7 +72,7 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 
 - **Top row**: Play/Pause, time counter (`current / total`), loop toggle, Export button
 - **Scrubber bar**: Draggable playhead with clip boundary markers and progress fill. Supports click-and-drag scrubbing (pauses during drag, resumes after)
-- **Clip track**: Horizontally scrollable. All thumbnails are 70px tall with 9:16 aspect ratio.
+- **Clip track**: Horizontally scrollable. All thumbnails are 200px tall with dynamic aspect ratio matching the selected ratio (9:16, 16:9, or 1:1).
   - `IN` thumbnail (green border) — original input image, with camera + arrow overlay buttons on hover
   - Input angle variants (violet border) — generated from IN image, appear right after IN
   - Video clips (blue border when active) — width proportional to duration, with delete button on hover
@@ -83,6 +85,8 @@ Hover reveals a play/pause overlay. Displays clip number, duration, and model na
 - **Camera** (top-left, violet) — open angle variant picker
 - **Arrow →** (bottom-left, green) — set this image as next generation input (shows as NEXT at end of timeline)
 - **X** (top-right, red on hover) — delete variant
+
+**Error variant thumbnails** show the error icon, a truncated error message (3 lines max), and a dismiss X button (top-right). Click the X to remove the failed variant.
 
 ## Cinematic Controls System
 
@@ -165,10 +169,11 @@ This preserves full appearance consistency even when the person is facing away f
 3. Hovering a preset shows its full prompt as a tooltip
 4. Click a preset → calls `/api/generate` with:
    - `mediaType: "image"`
-   - `selectedModel: { provider: "xai", modelId: "grok-imagine-image" }`
+   - `selectedModel`: depends on Image model toggle — xAI (`grok-imagine-image-pro`) or Gemini (`nano-banana-pro`)
    - `images: [sourceImage]` (or composite if face reference enabled)
    - `prompt: preset.prompt + body control prompt` (includes ANGLE_LOCK/CUSTOM_LOCK)
    - `parameters: { aspect_ratio }` — preserves current aspect ratio
+   - Gemini additionally sends `resolution: "2K"`
 5. Result saved to `<project>/angles/angle_<timestamp>.png`
 6. Variant appears as violet-bordered thumbnail next to its source
 

@@ -108,10 +108,11 @@ export async function generateXaiImage(
       return { success: false, error: "xAI: No image data in response" };
     }
 
-    console.log(`[API:${requestId}] SUCCESS - xAI image edit complete`);
+    console.log(`[API:${requestId}] SUCCESS - xAI image edit complete, b64_json starts with: ${imageData.substring(0, 30)}`);
+    const editDataUrl = imageData.startsWith("data:") ? imageData : `data:image/png;base64,${imageData}`;
     return {
       success: true,
-      outputs: [{ type: "image", data: `data:image/png;base64,${imageData}` }],
+      outputs: [{ type: "image", data: editDataUrl }],
     };
   } else {
     // Text-to-image: POST /images/generations
@@ -167,10 +168,11 @@ export async function generateXaiImage(
       return { success: false, error: "xAI: No image data in response" };
     }
 
-    console.log(`[API:${requestId}] SUCCESS - xAI text-to-image complete`);
+    console.log(`[API:${requestId}] SUCCESS - xAI text-to-image complete, b64_json starts with: ${imageData.substring(0, 30)}`);
+    const genDataUrl = imageData.startsWith("data:") ? imageData : `data:image/png;base64,${imageData}`;
     return {
       success: true,
-      outputs: [{ type: "image", data: `data:image/png;base64,${imageData}` }],
+      outputs: [{ type: "image", data: genDataUrl }],
     };
   }
 }
