@@ -27,6 +27,8 @@ import {
   ArrowUturnLeftIcon,
   ArrowRightIcon,
   ChevronRightIcon,
+  FaceSmileIcon,
+  PhotoIcon,
 } from "@heroicons/react/24/outline";
 import { PlayIcon as PlayIconSolid } from "@heroicons/react/24/solid";
 import {
@@ -186,10 +188,10 @@ const CINEMATIC_GROUPS: CinematicGroup[] = [
   },
 ];
 
-const ANGLE_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. DO NOT alter the person's appearance in any way. Photorealistic, sharp details";
+const ANGLE_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. DO NOT alter the person's appearance in any way. PRESERVE the COMPLETE body — ALL limbs (arms, legs, hands, feet) MUST be present even if partially occluded from the new angle. If the person is sitting, kneeling, or crouching, their legs and feet STILL EXIST and must be shown from the new viewing angle. NEVER remove or crop body parts. Photorealistic, sharp details";
 
 // Lighter lock for custom prompts — preserves identity & location but allows pose/action changes
-const CUSTOM_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. Photorealistic, sharp details";
+const CUSTOM_LOCK = "Output exactly ONE single continuous image, NOT a collage, NOT a grid, NOT split, NOT multiple views. DO NOT change the location, DO NOT change the background, DO NOT change the setting. Keep the EXACT same room, vehicle, street, interior, or exterior. Same person, same face, same skin tone, same skin color, same ethnicity, same body type, same hair color, same hairstyle, same makeup, same clothing, same accessories, same colors, same lighting, same brightness, same exposure, same color temperature. PRESERVE the COMPLETE body — ALL limbs (arms, legs, hands, feet) MUST be present. NEVER remove or crop body parts. Photorealistic, sharp details";
 
 const ANGLE_PRESETS = [
   // --- Enhance ---
@@ -232,6 +234,12 @@ const ANGLE_PRESETS = [
   },
   // --- Angle ---
   {
+    id: "front-facing",
+    label: "Front facing",
+    group: "Angle",
+    prompt: `Turn the subject to face the camera directly, front-facing portrait. The person looks straight at the camera with their body and face oriented forward. Same pose otherwise — same posture, same hand/arm positions adapted to the front view. EXACT same location, same background. ${ANGLE_LOCK}`,
+  },
+  {
     id: "low",
     label: "Low angle",
     group: "Angle",
@@ -262,12 +270,6 @@ const ANGLE_PRESETS = [
     prompt: `Rotate the entire image 15 degrees clockwise. Do NOT regenerate or reimagine anything. Just tilt/rotate the existing image. ${ANGLE_LOCK}`,
   },
   {
-    id: "pov",
-    label: "POV",
-    group: "Angle",
-    prompt: `First-person point-of-view shot showing what the subject is looking at. Camera positioned at the subject's eye level facing the direction they face. EXACT same location. ${ANGLE_LOCK}`,
-  },
-  {
     id: "behind",
     label: "Behind",
     group: "Angle",
@@ -284,68 +286,68 @@ const ANGLE_PRESETS = [
     id: "cam-orbit-left-45",
     label: "Cam orbit left 45°",
     group: "Orbit Camera",
-    prompt: `Move the virtual camera 45 degrees to the LEFT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. The background shifts naturally because we are seeing the scene from a different camera position. EXACT same location. ${ANGLE_LOCK}`,
+    prompt: `Show this SAME scene as if the camera moved 45 degrees to the LEFT around the person. The person is the center pivot — the camera circles them. There is exactly ONE person in the image, shown ONCE from this new angle. The person is FROZEN — same pose, no movement. The background changes perspective naturally. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "cam-orbit-right-45",
     label: "Cam orbit right 45°",
     group: "Orbit Camera",
-    prompt: `Move the virtual camera 45 degrees to the RIGHT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. The background shifts naturally because we are seeing the scene from a different camera position. EXACT same location. ${ANGLE_LOCK}`,
+    prompt: `Show this SAME scene as if the camera moved 45 degrees to the RIGHT around the person. The person is the center pivot — the camera circles them. There is exactly ONE person in the image, shown ONCE from this new angle. The person is FROZEN — same pose, no movement. The background changes perspective naturally. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "cam-orbit-left-90",
     label: "Cam orbit left 90°",
     group: "Orbit Camera",
-    prompt: `Move the virtual camera 90 degrees to the LEFT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. We now see the scene from a completely different camera angle. EXACT same location. ${ANGLE_LOCK}`,
+    prompt: `Show this SAME scene as if the camera moved 90 degrees to the LEFT around the person. The person is the center pivot — we now see them from the side. There is exactly ONE person in the image, shown ONCE from this new angle. The person is FROZEN — same pose, no movement. The background changes perspective naturally. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "cam-orbit-right-90",
     label: "Cam orbit right 90°",
     group: "Orbit Camera",
-    prompt: `Move the virtual camera 90 degrees to the RIGHT, orbiting around the subject. The person is FROZEN like a statue — DO NOT move their arms, legs, hands, feet, head, or any body part. ZERO pose change. The person's body position is IDENTICAL to the original. Only the viewing angle changes. We now see the scene from a completely different camera angle. EXACT same location. ${ANGLE_LOCK}`,
+    prompt: `Show this SAME scene as if the camera moved 90 degrees to the RIGHT around the person. The person is the center pivot — we now see them from the side. There is exactly ONE person in the image, shown ONCE from this new angle. The person is FROZEN — same pose, no movement. The background changes perspective naturally. EXACT same location. ${ANGLE_LOCK}`,
   },
   // --- Orbit Person (person rotates, camera stays) ---
   {
     id: "person-orbit-left-45",
     label: "Person turn left 45°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 45 degrees to THEIR LEFT as one rigid unit. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-right-45",
     label: "Person turn right 45°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 45 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 45 degrees to THEIR RIGHT as one rigid unit. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-left-90",
     label: "Person turn left 90°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable, showing their right side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 90 degrees to THEIR LEFT, showing their right side profile. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-right-90",
     label: "Person turn right 90°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 90 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable, showing their left side profile. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 90 degrees to THEIR RIGHT, showing their left side profile. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-left-135",
     label: "Person turn left 135°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 135 degrees to THEIR LEFT as a single rigid unit, like a mannequin on a turntable, showing mostly their back with a slight right-side view. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 135 degrees to THEIR LEFT, showing mostly their back with a slight right-side view. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-right-135",
     label: "Person turn right 135°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 135 degrees to THEIR RIGHT as a single rigid unit, like a mannequin on a turntable, showing mostly their back with a slight left-side view. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 135 degrees to THEIR RIGHT, showing mostly their back with a slight left-side view. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
   {
     id: "person-orbit-180",
     label: "Person turn 180°",
     group: "Orbit Person",
-    prompt: `The subject rotates their ENTIRE body 180 degrees, turning completely around to face away from the camera, showing their back. Like a mannequin on a turntable rotated halfway. DO NOT change the position of arms, legs, hands, or feet relative to the body. All accessories (necklaces, watches, bracelets, bags, hats, glasses, earrings, belts) rotate WITH the body — they must appear from the correct angle for the new viewing direction, NOT remain front-facing. Same standing/sitting pose, just rotated. The camera does NOT move. EXACT same location, same background. ${ANGLE_LOCK}`,
+    prompt: `The person rotates their ENTIRE body 180 degrees, turning completely around to show their back. Same pose, same EXACT hairstyle (same length, color, style, parting, updo — do NOT change hair), same clothing, same accessories. Hair and all accessories rotate WITH the body and appear from the correct new angle. ONE person shown ONCE. Camera does NOT move. EXACT same location. ${ANGLE_LOCK}`,
   },
 ] as const;
 
@@ -354,13 +356,13 @@ const ANGLE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGEleme
   clean: SparklesIcon,
   closeup: ViewfinderCircleIcon,
   wide: ArrowsPointingOutIcon,
+  "front-facing": FaceSmileIcon,
   low: ArrowLongUpIcon,
   high: ArrowLongDownIcon,
   profile: UserIcon,
   "over-shoulder": EyeIcon,
   medium: FilmIcon,
   dutch: ArrowsRightLeftIcon,
-  pov: HandRaisedIcon,
   behind: ArrowUturnLeftIcon,
   "extreme-closeup": ViewfinderCircleIcon,
   mirror: ArrowsRightLeftIcon,
@@ -449,7 +451,8 @@ interface ScenarioStateDisk {
   activeClipId: string | null;
 }
 
-// Helper: composite two images side by side (main left, reference right) for identity context
+// Helper: two full-size images side by side (main LEFT, reference RIGHT) with a separator
+// The API aspect_ratio parameter controls the output ratio, so wider composite is fine
 async function compositeWithReference(mainSrc: string, refSrc: string): Promise<string> {
   const loadImg = (src: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
@@ -461,37 +464,90 @@ async function compositeWithReference(mainSrc: string, refSrc: string): Promise<
 
   const [mainImg, refImg] = await Promise.all([loadImg(mainSrc), loadImg(refSrc)]);
 
-  // Reference image takes 30% of width, main takes 70%
-  const refScale = 0.3;
-  const mainScale = 1 - refScale;
+  // Use the taller image's height as canvas height, scale both to match
   const height = Math.max(mainImg.height, refImg.height);
-  const mainW = Math.round(height * (mainImg.width / mainImg.height) / mainScale);
-  const totalW = Math.round(mainW);
-  const mainDrawW = Math.round(totalW * mainScale);
-  const refDrawW = totalW - mainDrawW;
+  const mainW = Math.round((mainImg.width / mainImg.height) * height);
+  const refW = Math.round((refImg.width / refImg.height) * height);
+  const sep = 4;
+  const totalW = mainW + sep + refW;
 
   const canvas = document.createElement("canvas");
   canvas.width = totalW;
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
 
-  // Black background
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, totalW, height);
+  // Draw main image on left at full size
+  ctx.drawImage(mainImg, 0, 0, mainW, height);
 
-  // Draw main image on left
-  ctx.drawImage(mainImg, 0, 0, mainDrawW, height);
-
-  // Draw white separator line
+  // White separator line
   ctx.fillStyle = "#fff";
-  ctx.fillRect(mainDrawW - 1, 0, 2, height);
+  ctx.fillRect(mainW, 0, sep, height);
 
-  // Draw reference image on right, centered vertically
-  const refAspect = refImg.width / refImg.height;
-  const refDrawH = Math.min(height, refDrawW / refAspect);
-  const refY = (height - refDrawH) / 2;
-  ctx.drawImage(refImg, mainDrawW, refY, refDrawW, refDrawH);
+  // Draw reference image on right at full size
+  ctx.drawImage(refImg, mainW + sep, 0, refW, height);
 
+  return canvas.toDataURL("image/png");
+}
+
+// Helper: overlay a small product reference image in the top-right corner of the scene
+// Scene dimensions stay EXACTLY the same — no aspect ratio change
+async function overlayProductRef(sceneSrc: string, productSrc: string): Promise<string> {
+  const loadImg = (src: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+
+  const [sceneImg, productImg] = await Promise.all([loadImg(sceneSrc), loadImg(productSrc)]);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = sceneImg.width;
+  canvas.height = sceneImg.height;
+  const ctx = canvas.getContext("2d")!;
+
+  // Draw scene full size
+  ctx.drawImage(sceneImg, 0, 0);
+
+  // Product overlay: 20% of canvas width, top-right corner
+  const overlayW = Math.round(canvas.width * 0.2);
+  const productAspect = productImg.width / productImg.height;
+  const overlayH = Math.round(overlayW / productAspect);
+  const pad = 6;
+  const ox = canvas.width - overlayW - pad;
+  const oy = pad;
+
+  // White border
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(ox - 2, oy - 2, overlayW + 4, overlayH + 4);
+
+  // Product image
+  ctx.drawImage(productImg, ox, oy, overlayW, overlayH);
+
+  return canvas.toDataURL("image/png");
+}
+
+// Helper: crop output to the correct aspect ratio from the left side
+// When the model outputs two images side by side, this extracts just the left one
+async function cropLeftHalf(imageSrc: string, targetAspectRatio: string): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = imageSrc;
+  });
+  // Parse aspect ratio (e.g. "9:16" → 9/16, "16:9" → 16/9, "1:1" → 1)
+  const [w, h] = targetAspectRatio.split(":").map(Number);
+  const ratio = (w && h) ? w / h : 9 / 16;
+  const cropW = Math.round(img.height * ratio);
+  // Only crop if the image is significantly wider than expected (model output both sides)
+  if (cropW >= img.width * 0.9) return imageSrc; // already correct ratio, no crop needed
+  const canvas = document.createElement("canvas");
+  canvas.width = cropW;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, cropW, img.height, 0, 0, cropW, img.height);
   return canvas.toDataURL("image/png");
 }
 
@@ -837,6 +893,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const [originalInputImage, setOriginalInputImage] = useState<string | null>(null);
   const [originalInputImagePath, setOriginalInputImagePath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const customRefInputRef = useRef<HTMLInputElement>(null);
   const [inputAngleVariants, setInputAngleVariants] = useState<AngleVariant[]>([]);
 
   // Prompt & evasion
@@ -857,7 +914,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     scene: new Set(["smooth-motion", "consistent-light"]),
   });
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [faceReferenceEnabled, setFaceReferenceEnabled] = useState(true);
+  const [faceReferenceEnabled, setFaceReferenceEnabled] = useState(false);
 
   // Parameters
   const [duration, setDuration] = useState(12);
@@ -879,16 +936,18 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
   const [anglePickerPos, setAnglePickerPos] = useState<{ x: number; y: number } | null>(null);
   const [anglePickerSourceImage, setAnglePickerSourceImage] = useState<string | null>(null);
   const [angleSubmenu, setAngleSubmenu] = useState<string | null>(null);
-  const [angleSubmenuPos, setAngleSubmenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [angleSubmenuPos, setAngleSubmenuPos] = useState<{ x: number; y: number; parentLeft?: number } | null>(null);
   const [isDraggingToTimeline, setIsDraggingToTimeline] = useState(false);
   const [showCustomAngleInput, setShowCustomAngleInput] = useState(false);
   const [customAnglePrompt, setCustomAnglePrompt] = useState("");
+  const [customRefImage, setCustomRefImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null); // standalone image preview (frame/variant click)
 
   // Generating state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const generateAbortRef = useRef<AbortController | null>(null);
+  const angleAbortRefs = useRef<Map<string, AbortController>>(new Map());
 
   // Export state
   const { stitchVideos, progress: stitchProgress } = useStitchVideos();
@@ -1268,22 +1327,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         }
       }
 
-      // Appearance reference composite for video generation
-      // When enabled and the current input differs from the original upload,
-      // composite the original face alongside the input so the AI preserves identity
-      let promptForVideo = fullPrompt;
-      if (faceReferenceEnabled && imageForApi) {
-        const refImage = originalInputImage || inputImage;
-        if (refImage && refImage !== inputImage) {
-          try {
-            const refDataUrl = await resolveToDataUrl(refImage);
-            imageForApi = await compositeWithReference(imageForApi, refDataUrl);
-            promptForVideo = `IMPORTANT: The input contains TWO images side by side, separated by a white vertical line. The LARGE image on the LEFT is the scene to animate as video. The SMALL image on the RIGHT is ONLY a reference showing the person's full appearance — do NOT include it in the output, do NOT generate a split or composite video. Output a SINGLE video that animates the LEFT scene only. Use the RIGHT reference to maintain EXACT consistency throughout the entire video of: face, skin tone, hair style and color, makeup, clothing, accessories (jewelry, watches, glasses, hats, bags, belts), tattoos, and every other visible detail of the person's appearance. ${fullPrompt}`;
-          } catch {
-            // Composite failed — proceed with just the input image
-          }
-        }
-      }
+      // Video generation uses the input image directly — no composite reference
+      // (side-by-side composite causes the video model to squish both images together)
+      const promptForVideo = fullPrompt;
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
@@ -1474,6 +1520,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     const imgSrc = sourceImage || (isInputImage ? (originalInputImage || inputImage) : clip?.lastFrame);
     if (!imgSrc) return;
 
+    // Capture custom ref image before clearing state
+    const productRef = presetId === "custom" ? customRefImage : null;
+
     const basePreset = presetId === "custom"
       ? { id: "custom", label: "Custom", group: undefined as string | undefined, prompt: `${customPrompt}. ${CUSTOM_LOCK}` }
       : ANGLE_PRESETS.find((p) => p.id === presetId);
@@ -1495,6 +1544,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     setAngleSubmenu(null);
     setShowCustomAngleInput(false);
     setCustomAnglePrompt("");
+    setCustomRefImage(null);
 
     const variantId = `angle-${Date.now()}`;
     const newVariant: AngleVariant = {
@@ -1519,21 +1569,37 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       );
     }
 
+    const abortController = new AbortController();
+    angleAbortRefs.current.set(variantId, abortController);
+
     try {
       // Resolve source image for API
       let frameForApi = await resolveToDataUrl(imgSrc);
 
-      // If we have an original face reference that differs from current source,
-      // composite them side by side so the AI can maintain identity
       let promptForApi = preset.prompt;
-      const refImage = originalInputImage || inputImage;
-      if (faceReferenceEnabled && refImage && refImage !== imgSrc) {
+      let usedComposite = false;
+
+      if (productRef) {
+        // Product reference: overlay small product image in top-right corner of the scene
+        // The scene stays as the main image — model edits it directly
         try {
-          const refDataUrl = await resolveToDataUrl(refImage);
-          frameForApi = await compositeWithReference(frameForApi, refDataUrl);
-          promptForApi = `IMPORTANT: The input contains TWO images side by side, separated by a white vertical line. The LARGE image on the LEFT is the scene to edit and transform. The SMALL image on the RIGHT is ONLY a reference showing the person's full appearance — do NOT include it in the output, do NOT generate a split or composite image. Output a SINGLE image that is a transformation of the LEFT scene only. Use the RIGHT reference to maintain EXACT consistency of: face, skin tone, hair style and color, makeup, clothing, accessories (jewelry, watches, glasses, hats, bags, belts), tattoos, and every other visible detail of the person's appearance. ${promptForApi}`;
+          frameForApi = await overlayProductRef(frameForApi, productRef);
+          promptForApi = `[Small image in top-right corner is a PRODUCT REFERENCE showing what the item looks like. REMOVE that overlay from output. Edit this scene: keep the person, pose, face, background, lighting — change ONLY what the user asks. Use the corner reference to know the exact product appearance.] ${promptForApi}`;
         } catch {
-          // Composite failed — proceed with just the source image
+          // Overlay failed — proceed without product ref
+        }
+      } else if (faceReferenceEnabled) {
+        // Appearance reference: composite scene + original input for identity
+        const refImage = originalInputImage || inputImage;
+        if (refImage && refImage !== imgSrc) {
+          try {
+            const refDataUrl = await resolveToDataUrl(refImage);
+            frameForApi = await compositeWithReference(frameForApi, refDataUrl);
+            usedComposite = true;
+            promptForApi = `[TWO images side by side. LEFT = scene to transform. RIGHT = appearance reference ONLY. Output a SINGLE ${aspectRatio} image of LEFT only — no split, no collage. Use RIGHT to match: face, hair, skin, makeup, clothing, accessories. Each accessory must appear ONCE in its correct position — do NOT duplicate (e.g. if glasses are on the head, keep them on the head, do NOT add a second pair on the eyes).] ${promptForApi}`;
+          } catch {
+            // Composite failed — proceed with just the source image
+          }
         }
       }
 
@@ -1545,6 +1611,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers,
+        signal: abortController.signal,
         body: JSON.stringify({
           prompt: promptForApi,
           images: [frameForApi],
@@ -1563,8 +1630,17 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       const result = await response.json();
       if (!result.success) throw new Error(result.error || "Generation failed");
 
-      const imageData = result.image || result.imageUrl;
+      let imageData = result.image || result.imageUrl;
       if (!imageData) throw new Error("No image data in response");
+
+      // If composite was used, the model may output both images side by side — crop left half
+      if (usedComposite) {
+        try {
+          imageData = await cropLeftHalf(imageData, aspectRatio);
+        } catch {
+          // Crop failed — use full image
+        }
+      }
 
       // Save to disk
       let imagePath: string | null = null;
@@ -1626,8 +1702,30 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           )
         );
       }
+    } finally {
+      angleAbortRefs.current.delete(variantId);
     }
-  }, [clips, xaiApiKey, activeProject, aspectRatio, originalInputImage, inputImage, cinematicState, faceReferenceEnabled]);
+  }, [clips, xaiApiKey, activeProject, aspectRatio, originalInputImage, inputImage, cinematicState, faceReferenceEnabled, customRefImage]);
+
+  // Cancel an in-progress angle variant generation
+  const cancelAngleVariant = useCallback((variantId: string, clipId: string) => {
+    // Abort the fetch
+    const controller = angleAbortRefs.current.get(variantId);
+    if (controller) controller.abort();
+    angleAbortRefs.current.delete(variantId);
+    // Remove the variant
+    if (clipId === "__input__") {
+      setInputAngleVariants((prev) => prev.filter((av) => av.id !== variantId));
+    } else {
+      setClips((prev) =>
+        prev.map((c) =>
+          c.id === clipId
+            ? { ...c, angleVariants: c.angleVariants.filter((av) => av.id !== variantId) }
+            : c
+        )
+      );
+    }
+  }, []);
 
   // Stop playback and animation loop
   const stopPlayback = useCallback(() => {
@@ -1651,7 +1749,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
     if (clip) {
       setPrompt(clip.rawPrompt);
       setEvasionTechnique(clip.evasionTechnique);
-      setEvasionOutput(clip.prompt !== clip.rawPrompt ? clip.prompt : applyEvasion(clip.rawPrompt, clip.evasionTechnique));
+      // Always re-apply evasion from raw prompt — never use clip.prompt which includes cinematic controls
+      setEvasionOutput(applyEvasion(clip.rawPrompt, clip.evasionTechnique));
     }
   }, [clips, getClipStartTime, stopPlayback]);
 
@@ -2283,7 +2382,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                 }
               }}
               placeholder="Describe the scene..."
-              className="w-full h-[80px] bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-neutral-200 placeholder:text-neutral-600 resize-none focus:outline-none focus:border-neutral-600 transition-colors"
+              className="w-full h-[120px] bg-neutral-800 border border-neutral-700 rounded px-2 py-1.5 text-xs text-neutral-200 placeholder:text-neutral-600 resize-none focus:outline-none focus:border-neutral-600 transition-colors"
             />
           </div>
 
@@ -2329,7 +2428,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                 value={evasionOutput ?? ""}
                 onChange={(e) => setEvasionOutput(e.target.value || null)}
                 placeholder="Transformed output..."
-                className="w-full h-[60px] text-[10px] px-2 py-1.5 border border-dashed border-neutral-600 rounded bg-neutral-900/30 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-neutral-600 font-mono break-all"
+                className="w-full h-[200px] text-[10px] px-2 py-1.5 border border-dashed border-neutral-600 rounded bg-neutral-900/30 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-neutral-600 font-mono break-all"
               />
             </div>
           </div>
@@ -2562,7 +2661,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
       {/* ================================================================== */}
       {/* TIMELINE */}
       {/* ================================================================== */}
-      <div className="h-[200px] flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col relative overflow-visible">
+      <div className="h-[280px] flex-shrink-0 bg-neutral-900 border-t border-neutral-800 flex flex-col relative overflow-visible">
         {/* Playback controls row */}
         <div className="h-[30px] flex items-center px-3 border-b border-neutral-800/50 gap-3">
           <button
@@ -2670,17 +2769,17 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         </div>
 
         {/* Clip track */}
-        <div className="flex-1 px-3 py-2 overflow-x-auto overflow-y-visible flex items-center gap-1.5">
+        <div className="flex-1 px-3 py-2 overflow-x-auto overflow-y-hidden flex items-center gap-1.5">
           {/* Input image as first timeline item — always shows original upload */}
           {(originalInputImage || inputImage) && (
-            <div className="flex-shrink-0 h-[70px] relative group/inimg">
+            <div className="flex-shrink-0 h-[200px] relative group/inimg">
               <button
                 onClick={() => {
                   stopPlayback();
                   setActiveClipId(null);
                   setPreviewImage(originalInputImage || inputImage || null);
                 }}
-                className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative cursor-pointer ${
+                className={`flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 transition-colors relative cursor-pointer ${
                   previewImage === (originalInputImage || inputImage) ? "border-green-500" : "border-neutral-700 hover:border-neutral-600"
                 }`}
                 style={{ aspectRatio: "9/16" }}
@@ -2691,8 +2790,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   alt="Input"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                  <span className="text-[8px] text-green-400 font-medium">IN</span>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1 overflow-hidden">
+                  <span className="text-[10px] text-green-400 font-medium">IN</span>
                 </div>
               </button>
               {/* Camera button overlay — generate angle variant from IN image */}
@@ -2704,10 +2803,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   setAnglePickerPos({ x: rect.left, y: rect.top });
                   setAnglePickerSourceImage(originalInputImage || inputImage || null);
                 }}
-                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/inimg:opacity-100 z-10"
+                className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/inimg:opacity-100 z-10"
                 title="Generate angle variant from input image"
               >
-                <CameraIcon className="w-3 h-3" />
+                <CameraIcon className="w-4 h-4" />
               </button>
               {/* "Use as next input" button — bottom left */}
               <button
@@ -2717,10 +2816,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   setInputImage(originalInputImage || inputImage);
                   setInputImagePath(originalInputImagePath || inputImagePath);
                 }}
-                className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/inimg:opacity-100 z-10"
+                className="absolute bottom-6 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/inimg:opacity-100 z-10"
                 title="Use as next input"
               >
-                <ArrowRightIcon className="w-3 h-3" />
+                <ArrowRightIcon className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -2729,19 +2828,26 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           {inputAngleVariants.length > 0 && (
             <div className="flex-shrink-0 flex items-center gap-1.5">
               {inputAngleVariants.map((variant) => (
-                <div key={variant.id} className="flex-shrink-0 h-[70px]">
+                <div key={variant.id} className="flex-shrink-0 h-[200px]">
                   {variant.status === "generating" ? (
-                    <div className="h-[70px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
-                      <div className="w-4 h-4 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                    <div className="relative h-[200px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
+                      <div className="w-6 h-6 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                      <button
+                        onClick={() => cancelAngleVariant(variant.id, "__input__")}
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
+                        title="Cancel"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5 text-white" />
+                      </button>
                     </div>
                   ) : variant.status === "error" ? (
                     <div
-                      className="h-[70px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
+                      className="h-[200px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
                       style={{ aspectRatio: "9/16" }}
                       title={variant.error || "Generation failed"}
                       onClick={() => setInputAngleVariants((prev) => prev.filter((av) => av.id !== variant.id))}
                     >
-                      <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
+                      <ExclamationTriangleIcon className="w-6 h-6 text-red-500/70" />
                     </div>
                   ) : variant.image ? (
                     <div className="relative group/variant">
@@ -2750,13 +2856,13 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                           setActiveClipId(null);
                           setPreviewImage(variant.image);
                         }}
-                        className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
+                        className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
                         style={{ aspectRatio: "9/16" }}
                         title={`Preview ${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId}`}
                       >
                         <img src={variant.image} alt={variant.presetId} className="w-full h-full object-cover" />
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                          <span className="text-[7px] text-violet-400 font-medium">
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1 overflow-hidden">
+                          <span className="text-[10px] text-violet-400 font-medium truncate block">
                             {ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? ""}
                           </span>
                         </div>
@@ -2770,10 +2876,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                           setAnglePickerPos({ x: rect.left, y: rect.top });
                           setAnglePickerSourceImage(variant.image);
                         }}
-                        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                        className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
                         title="Generate another angle from this variant"
                       >
-                        <CameraIcon className="w-3 h-3" />
+                        <CameraIcon className="w-4 h-4" />
                       </button>
                       {/* Use as next input */}
                       <button
@@ -2783,20 +2889,18 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                           setInputImage(variant.image);
                           if (variant.imagePath) setInputImagePath(variant.imagePath);
                         }}
-                        className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                        className="absolute bottom-6 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
                         title="Use as next input"
                       >
-                        <ArrowRightIcon className="w-3 h-3" />
+                        <ArrowRightIcon className="w-4 h-4" />
                       </button>
                       {/* Delete */}
-                      <div
-                        className="absolute -top-1 -right-1 opacity-0 group-hover/variant:opacity-100 transition-opacity cursor-pointer z-10"
+                      <button
+                        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover/variant:opacity-100 transition-all cursor-pointer z-10"
                         onClick={() => setInputAngleVariants((prev) => prev.filter((av) => av.id !== variant.id))}
                       >
-                        <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
-                          <XMarkIcon className="w-2.5 h-2.5 text-white" />
-                        </div>
-                      </div>
+                        <XMarkIcon className="w-3.5 h-3.5 text-white" />
+                      </button>
                     </div>
                   ) : null}
                 </div>
@@ -2805,7 +2909,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           )}
 
           {clips.length === 0 && !inputImage ? (
-            <div className="flex-1 flex items-center justify-center h-[70px]">
+            <div className="flex-1 flex items-center justify-center h-[200px]">
               <span className="text-[10px] text-neutral-600">
                 Timeline empty — upload image & generate
               </span>
@@ -2820,7 +2924,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   {/* Video clip — width proportional to duration */}
                   <button
                     onClick={() => handleClipClick(clip.id)}
-                    className={`flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 transition-colors relative group ${
+                    className={`flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 transition-colors relative group ${
                       activeClipId === clip.id
                         ? "border-blue-500"
                         : clip.status === "error"
@@ -2831,11 +2935,11 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   >
                     {clip.status === "generating" ? (
                       <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                        <div className="w-4 h-4 border-2 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
+                        <div className="w-6 h-6 border-2 border-neutral-600 border-t-blue-500 rounded-full animate-spin" />
                       </div>
                     ) : clip.status === "error" ? (
                       <div className="w-full h-full bg-red-950/30 flex items-center justify-center">
-                        <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
+                        <ExclamationTriangleIcon className="w-6 h-6 text-red-500/70" />
                       </div>
                     ) : clip.thumbnail ? (
                       <img
@@ -2845,28 +2949,26 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                       />
                     ) : (
                       <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-                        <span className="text-[8px] text-neutral-600">
+                        <span className="text-[10px] text-neutral-600">
                           {index + 1}
                         </span>
                       </div>
                     )}
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                      <span className="text-[8px] text-neutral-300 tabular-nums">
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1 overflow-hidden">
+                      <span className="text-[10px] text-neutral-300 tabular-nums">
                         {clip.duration}s
                       </span>
                     </div>
                     {/* Delete button */}
-                    <div
-                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    <button
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all z-10"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteClip(clip.id);
                       }}
                     >
-                      <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
-                        <XMarkIcon className="w-2.5 h-2.5 text-white" />
-                      </div>
-                    </div>
+                      <XMarkIcon className="w-3.5 h-3.5 text-white" />
+                    </button>
                   </button>
 
                   {/* Last frame + angle variants (all same size, horizontal) */}
@@ -2874,13 +2976,13 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     <div className="flex-shrink-0 flex items-center gap-1.5">
                       <div className="text-neutral-600 text-[10px]">&rarr;</div>
                       {/* Frame thumbnail with camera button overlay */}
-                      <div className="flex-shrink-0 h-[70px] relative group/frame">
+                      <div className="flex-shrink-0 h-[200px] relative group/frame">
                         <button
                           onClick={() => {
                             setActiveClipId(null);
                             setPreviewImage(clip.lastFrame);
                           }}
-                          className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
+                          className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-orange-500/40 hover:border-orange-400 relative transition-colors cursor-pointer"
                           style={{ aspectRatio: "9/16" }}
                           title="Preview this frame"
                         >
@@ -2889,8 +2991,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                             alt={`Frame ${index + 1}`}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                            <span className="text-[8px] text-orange-400 font-medium">F{index + 1}</span>
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1 overflow-hidden">
+                            <span className="text-[10px] text-orange-400 font-medium">F{index + 1}</span>
                           </div>
                         </button>
                         {/* Camera button overlay */}
@@ -2902,10 +3004,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                             setAnglePickerPos({ x: rect.left, y: rect.top });
                             setAnglePickerSourceImage(clip.lastFrame);
                           }}
-                          className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/frame:opacity-100 z-10"
+                          className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/frame:opacity-100 z-10"
                           title="Generate angle variant from this frame"
                         >
-                          <CameraIcon className="w-3 h-3" />
+                          <CameraIcon className="w-4 h-4" />
                         </button>
                         {/* "Use as next input" button — bottom left */}
                         <button
@@ -2915,23 +3017,30 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                             setInputImage(clip.lastFrame);
                             if (clip.lastFramePath) setInputImagePath(clip.lastFramePath);
                           }}
-                          className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/frame:opacity-100 z-10"
+                          className="absolute bottom-6 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/frame:opacity-100 z-10"
                           title="Use as next input"
                         >
-                          <ArrowRightIcon className="w-3 h-3" />
+                          <ArrowRightIcon className="w-4 h-4" />
                         </button>
                       </div>
 
                       {/* Variant thumbnails — same size as frame */}
                       {clip.angleVariants.map((variant) => (
-                        <div key={variant.id} className="flex-shrink-0 h-[70px]">
+                        <div key={variant.id} className="flex-shrink-0 h-[200px]">
                           {variant.status === "generating" ? (
-                            <div className="h-[70px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
-                              <div className="w-4 h-4 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                            <div className="relative h-[200px] rounded-md border-2 border-violet-500/40 bg-neutral-800 flex items-center justify-center" style={{ aspectRatio: "9/16" }}>
+                              <div className="w-6 h-6 border-2 border-neutral-600 border-t-violet-500 rounded-full animate-spin" />
+                              <button
+                                onClick={() => cancelAngleVariant(variant.id, clip.id)}
+                                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-colors"
+                                title="Cancel"
+                              >
+                                <XMarkIcon className="w-3.5 h-3.5 text-white" />
+                              </button>
                             </div>
                           ) : variant.status === "error" ? (
                             <div
-                              className="h-[70px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
+                              className="h-[200px] rounded-md border-2 border-red-500/40 bg-red-950/20 flex items-center justify-center cursor-pointer"
                               style={{ aspectRatio: "9/16" }}
                               title={variant.error || "Generation failed"}
                               onClick={() => {
@@ -2944,7 +3053,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                 );
                               }}
                             >
-                              <ExclamationTriangleIcon className="w-4 h-4 text-red-500/70" />
+                              <ExclamationTriangleIcon className="w-6 h-6 text-red-500/70" />
                             </div>
                           ) : variant.image ? (
                             <div className="relative group/variant">
@@ -2953,7 +3062,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   setActiveClipId(null);
                                   setPreviewImage(variant.image);
                                 }}
-                                className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
+                                className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-violet-500/40 hover:border-violet-400 relative transition-colors cursor-pointer"
                                 style={{ aspectRatio: "9/16" }}
                                 title={`Preview ${ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? variant.presetId}`}
                               >
@@ -2962,8 +3071,8 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   alt={variant.presetId}
                                   className="w-full h-full object-cover"
                                 />
-                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                                  <span className="text-[7px] text-violet-400 font-medium">
+                                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1 overflow-hidden">
+                                  <span className="text-[10px] text-violet-400 font-medium truncate block">
                                     {ANGLE_PRESETS.find((p) => p.id === variant.presetId)?.label ?? ""}
                                   </span>
                                 </div>
@@ -2977,10 +3086,10 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   setAnglePickerPos({ x: rect.left, y: rect.top });
                                   setAnglePickerSourceImage(variant.image);
                                 }}
-                                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                                className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-violet-400 hover:bg-violet-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
                                 title="Generate another angle from this variant"
                               >
-                                <CameraIcon className="w-3 h-3" />
+                                <CameraIcon className="w-4 h-4" />
                               </button>
                               {/* "Use as next input" button — bottom left */}
                               <button
@@ -2990,14 +3099,14 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   setInputImage(variant.image);
                                   if (variant.imagePath) setInputImagePath(variant.imagePath);
                                 }}
-                                className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
+                                className="absolute bottom-6 left-1.5 w-7 h-7 rounded-full bg-black/60 flex items-center justify-center text-neutral-400 hover:text-green-400 hover:bg-green-600/60 transition-all opacity-0 group-hover/variant:opacity-100 z-10"
                                 title="Use as next input"
                               >
-                                <ArrowRightIcon className="w-3 h-3" />
+                                <ArrowRightIcon className="w-4 h-4" />
                               </button>
                               {/* Delete button — top right */}
                               <button
-                                className="absolute -top-1 -right-1 opacity-0 group-hover/variant:opacity-100 transition-opacity cursor-pointer z-10"
+                                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-red-600 flex items-center justify-center opacity-0 group-hover/variant:opacity-100 transition-all cursor-pointer z-10"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setClips((prev) =>
@@ -3009,9 +3118,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                                   );
                                 }}
                               >
-                                <div className="w-4 h-4 bg-black/80 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors">
-                                  <XMarkIcon className="w-2.5 h-2.5 text-white" />
-                                </div>
+                                <XMarkIcon className="w-3.5 h-3.5 text-white" />
                               </button>
                             </div>
                           ) : null}
@@ -3029,7 +3136,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                 >
                   <div className="text-green-500 text-[10px]">&rarr;</div>
                   <div
-                    className="flex-shrink-0 h-[70px] rounded-md overflow-hidden border-2 border-green-500/60 relative"
+                    className="flex-shrink-0 h-[200px] rounded-md overflow-hidden border-2 border-green-500/60 relative"
                     style={{ aspectRatio: "9/16" }}
                   >
                     <img
@@ -3037,12 +3144,12 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                       alt="Next input"
                       className="w-full h-full object-cover"
                     />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1 py-0.5">
-                      <span className="text-[8px] text-green-400 font-medium">NEXT</span>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-1.5 py-1 overflow-hidden">
+                      <span className="text-[10px] text-green-400 font-medium">NEXT</span>
                     </div>
                     {/* Remove button — always visible inside thumbnail */}
                     <button
-                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/70 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
                       onClick={() => {
                         const lastClip = clips[clips.length - 1];
                         if (lastClip?.lastFrame) {
@@ -3052,7 +3159,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                       }}
                       title="Remove — revert to last frame"
                     >
-                      <XMarkIcon className="w-3 h-3 text-white" />
+                      <XMarkIcon className="w-4 h-4 text-white" />
                     </button>
                   </div>
                 </div>
@@ -3060,7 +3167,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
 
               {/* Drop zone at end of timeline */}
               <div
-                className={`flex-shrink-0 h-[70px] rounded-md border-2 border-dashed flex items-center justify-center transition-all ${
+                className={`flex-shrink-0 h-[200px] rounded-md border-2 border-dashed flex items-center justify-center transition-all ${
                   isDraggingToTimeline
                     ? "w-[60px] border-green-500/60 bg-green-500/10"
                     : "w-2 border-transparent"
@@ -3085,7 +3192,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                 }}
               >
                 {isDraggingToTimeline && (
-                  <span className="text-[8px] text-green-400 font-medium text-center leading-tight">
+                  <span className="text-[10px] text-green-400 font-medium text-center leading-tight">
                     Drop<br />here
                   </span>
                 )}
@@ -3103,8 +3210,9 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => { setAnglePickerClipId(null); setAnglePickerPos(null); setAnglePickerSourceImage(null); setAngleSubmenu(null); setShowCustomAngleInput(false); setCustomAnglePrompt(""); }} />
           <div
+            data-angle-picker
             className="fixed z-[70] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl p-1.5 min-w-[180px] max-h-[70vh] overflow-y-auto"
-            style={{ left: anglePickerPos.x, bottom: window.innerHeight - anglePickerPos.y + 4 }}
+            style={{ left: Math.min(anglePickerPos.x, window.innerWidth - 200), bottom: window.innerHeight - anglePickerPos.y + 4 }}
           >
             {/* All groups as fly-out submenus */}
             {(() => {
@@ -3118,16 +3226,18 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     <button
                       onMouseEnter={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();
+                        const parentRect = e.currentTarget.closest('[data-angle-picker]')?.getBoundingClientRect();
                         setAngleSubmenu(group);
-                        setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
+                        setAngleSubmenuPos({ x: rect.right + 4, y: rect.top, parentLeft: parentRect?.left ?? rect.left });
                       }}
                       onClick={(e) => {
                         if (angleSubmenu === group) {
                           setAngleSubmenu(null);
                         } else {
                           const rect = e.currentTarget.getBoundingClientRect();
+                          const parentRect = e.currentTarget.closest('[data-angle-picker]')?.getBoundingClientRect();
                           setAngleSubmenu(group);
-                          setAngleSubmenuPos({ x: rect.right + 4, y: rect.top });
+                          setAngleSubmenuPos({ x: rect.right + 4, y: rect.top, parentLeft: parentRect?.left ?? rect.left });
                         }
                       }}
                       className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors ${
@@ -3157,7 +3267,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                   autoFocus
                   value={customAnglePrompt}
                   onChange={(e) => setCustomAnglePrompt(e.target.value)}
-                  placeholder="Describe the angle/change..."
+                  placeholder="Describe the change... e.g. &quot;replace the handbag with this one&quot;"
                   className="w-full h-[50px] text-[10px] px-2 py-1.5 border border-neutral-600 rounded bg-neutral-900 text-neutral-300 resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-neutral-600"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey && customAnglePrompt.trim()) {
@@ -3167,10 +3277,46 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     if (e.key === "Escape") {
                       setShowCustomAngleInput(false);
                       setCustomAnglePrompt("");
+                      setCustomRefImage(null);
                     }
                   }}
                 />
-                <div className="flex gap-1 mt-1">
+                {/* Product/item reference image upload */}
+                <input
+                  ref={customRefInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => setCustomRefImage(ev.target?.result as string);
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }}
+                />
+                {customRefImage ? (
+                  <div className="flex items-center gap-1.5 mt-1 mb-1">
+                    <img src={customRefImage} alt="ref" className="w-8 h-8 rounded object-cover border border-violet-500" />
+                    <span className="text-[9px] text-violet-400 flex-1">Reference attached</span>
+                    <button
+                      onClick={() => setCustomRefImage(null)}
+                      className="text-neutral-500 hover:text-red-400 transition-colors"
+                    >
+                      <XMarkIcon className="w-3 h-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => customRefInputRef.current?.click()}
+                    className="flex items-center gap-1 mt-1 mb-1 px-1.5 py-0.5 rounded text-[9px] text-neutral-500 hover:text-violet-400 hover:bg-neutral-800 transition-colors"
+                  >
+                    <PhotoIcon className="w-3 h-3" />
+                    <span>Add reference image</span>
+                  </button>
+                )}
+                <div className="flex gap-1">
                   <button
                     onClick={() => {
                       if (customAnglePrompt.trim()) {
@@ -3183,7 +3329,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
                     Generate
                   </button>
                   <button
-                    onClick={() => { setShowCustomAngleInput(false); setCustomAnglePrompt(""); }}
+                    onClick={() => { setShowCustomAngleInput(false); setCustomAnglePrompt(""); setCustomRefImage(null); }}
                     className="px-2 py-1 rounded text-[9px] text-neutral-400 hover:text-neutral-300 hover:bg-neutral-700 transition-colors"
                   >
                     Cancel
@@ -3196,7 +3342,7 @@ export function ScenarioMode({ onBack }: ScenarioModeProps) {
           {angleSubmenu && angleSubmenuPos && (
             <div
               className="fixed z-[80] bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl p-1.5 min-w-[180px]"
-              style={{ left: angleSubmenuPos.x, bottom: window.innerHeight - angleSubmenuPos.y - 32 }}
+              style={{ left: angleSubmenuPos.x + 200 > window.innerWidth ? (angleSubmenuPos.parentLeft ?? angleSubmenuPos.x) - 200 - 4 : angleSubmenuPos.x, bottom: window.innerHeight - angleSubmenuPos.y - 32 }}
               onMouseLeave={() => setAngleSubmenu(null)}
             >
               {ANGLE_PRESETS.filter((p) => (p as { group?: string }).group === angleSubmenu).map((preset) => (
